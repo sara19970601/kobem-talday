@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Көркем шығарманы талдау</title>
+<!--
+================================================================================
+  КӨРКЕМ ШЫҒАРМАНЫ ТАЛДАУ — мұғалімге арналған құрал (kobem-talday.html)
+  «Көркем шығарманы талдау» практикалық жұмыс дәптері (31 парақ) негізінде.
+================================================================================
+
+README
+
+  How to open
+    - Double-click kobem-talday.html (Chrome / Edge / Firefox / Safari).
+      No internet, server or installation needed; the file makes no network
+      requests, so it works fully offline.
+    - Work is saved automatically in this browser (localStorage). If storage is
+      blocked, a warning appears in the top bar — use Export JSON.
+
+  How to export / import
+    - "JSON экспорттау" downloads a .json backup of the current analysis.
+    - "JSON импорттау" loads such a file on another device. The file is
+      validated; a malformed file shows a Kazakh error and nothing is changed.
+    - No student personal data is stored. Student-facing sheets (e.g. 26,
+      self-assessment) and the "Оқушының аты-жөні" header exist only as blank
+      printouts.
+
+  How to change worksheets or add a genre (data only)
+    - WORKBOOK (the WORKSHEETS data block) holds all 31 sheets exactly as in the
+      workbook JSON. Edit labels there, or paste a newer export of the JSON.
+      Field types: text, long, list (3 rows), table (columns × rows),
+      dropdown (options), tags (multi-choice options), rubric.
+    - A sheet's "genres" says where it appears: ["all"] or a genre id.
+    - To add a genre: add an entry to CONFIG → GENRES (label + lessonPlan
+      activity set), tag its sheets with the genre id, and optionally add an
+      activity set in LESSON_PLAN → activities.
+    - UI labels live in STRINGS (one object) so a Russian version can be added.
+
+  Code sections: CONFIG, STRINGS, WORKSHEETS, STATE, RENDER, LESSON_PLAN,
+  RUBRIC, PRINT, IMPORT/EXPORT, INIT.
+================================================================================
+-->
+<style>
+  /* ---------- Tokens ---------- */
+  :root {
+    --bg: #f6f4ef;
+    --surface: #ffffff;
+    --surface-2: #faf8f4;
+    --ink: #1f2328;
+    --ink-2: #545b64;
+    --line: #dcd7cd;
+    --accent: #1f6f5c;
+    --accent-ink: #ffffff;
+    --accent-soft: #e3f1ec;
+    --warn: #8a5a00;
+    --warn-soft: #fff4dc;
+    --danger: #a3271f;
+    --danger-soft: #fde8e6;
+    --stage-empty: #e8e3d8;
+    --radius: 8px;
+    --font: "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --overlay: rgba(20, 24, 26, .5);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15191b; --surface: #1f2427; --surface-2: #1a1e21; --ink: #e6e9ea; --ink-2: #a2abb1;
+      --line: #353c41; --accent: #56b79c; --accent-ink: #0d1a16; --accent-soft: #1c3830;
+      --warn: #e4b45e; --warn-soft: #382c14; --danger: #f08b80; --danger-soft: #3b1d1a;
+      --stage-empty: #2d3337; --overlay: rgba(0, 0, 0, .6); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15191b; --surface: #1f2427; --surface-2: #1a1e21; --ink: #e6e9ea; --ink-2: #a2abb1;
+    --line: #353c41; --accent: #56b79c; --accent-ink: #0d1a16; --accent-soft: #1c3830;
+    --warn: #e4b45e; --warn-soft: #382c14; --danger: #f08b80; --danger-soft: #3b1d1a;
+    --stage-empty: #2d3337; --overlay: rgba(0, 0, 0, .6); color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+
+  /* ---------- App layout ---------- */
+  .app {
+    display: grid;
+    grid-template-columns: 290px minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "top top" "side main" "side foot";
+    height: 100%;
+  }
+  .topbar {
+    grid-area: top;
+    display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { margin-right: auto; min-width: 180px; }
+  .brand h1 { margin: 0; font-size: 18px; line-height: 1.2; }
+  .brand p { margin: 0; font-size: 12px; color: var(--ink-2); }
+  .tb-field { display: flex; flex-direction: column; gap: 2px; }
+  .tb-field label { font-size: 12px; color: var(--ink-2); }
+  .tb-field input { width: 210px; }
+  .tb-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .save-status { font-size: 12px; color: var(--ink-2); min-width: 70px; }
+  .save-status.off { color: var(--warn); }
+
+  .sidebar {
+    grid-area: side;
+    overflow-y: auto;
+    background: var(--surface-2);
+    border-right: 1px solid var(--line);
+    padding: 12px 10px;
+  }
+  .sidebar h2 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--ink-2); margin: 10px 8px 6px;
+  }
+  .steps { list-style: none; margin: 0 0 6px; padding: 0; }
+  .step-btn {
+    width: 100%; display: flex; align-items: flex-start; gap: 10px;
+    text-align: left; padding: 6px 8px; margin-bottom: 1px;
+    border: 1px solid transparent; border-radius: var(--radius);
+    background: transparent; cursor: pointer;
+  }
+  .step-btn:hover { background: var(--surface); border-color: var(--line); }
+  .step-btn[aria-current="step"] { background: var(--accent-soft); border-color: var(--accent); }
+  .step-num {
+    flex: none; min-width: 26px; height: 24px; border-radius: 12px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600;
+    border: 1.5px solid var(--line); background: var(--surface); color: var(--ink-2);
+  }
+  .step-btn.done .step-num { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .step-label { font-size: 13.5px; line-height: 1.35; padding-top: 2px; }
+  .privacy { font-size: 12px; color: var(--ink-2); margin: 12px 8px; }
+  .sr-only { position: absolute; left: -9999px; }
+
+  .main { grid-area: main; overflow-y: auto; padding: 20px 28px 40px; }
+  .main-inner { max-width: 900px; margin: 0 auto; }
+  .ws-kicker { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent); font-weight: 600; margin: 0; }
+  .ws-title { font-size: 22px; margin: 0 0 4px; }
+  .ws-meta { color: var(--ink-2); font-size: 13px; margin: 0 0 16px; }
+  .ws-intro { color: var(--ink-2); margin: 0 0 16px; }
+  .ws-tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+
+  .footer {
+    grid-area: foot;
+    display: flex; align-items: center; gap: 14px;
+    padding: 10px 20px;
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+  }
+  .progress { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .progress-track { height: 8px; background: var(--stage-empty); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); width: 0; transition: width .25s; }
+  .progress-label { font-size: 12px; color: var(--ink-2); }
+
+  /* ---------- Controls ---------- */
+  .btn {
+    border: 1px solid var(--line); background: var(--surface);
+    padding: 7px 12px; border-radius: var(--radius); cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--ink-2); }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .btn.danger { color: var(--danger); }
+  input[type=text], select, textarea {
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 9px; background: var(--surface); width: 100%;
+  }
+  textarea { min-height: 76px; resize: vertical; }
+  input:focus, select:focus, textarea:focus, .btn:focus-visible, .step-btn:focus-visible, .chip:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+
+  /* ---------- Worksheet fields ---------- */
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 14px 16px; margin-bottom: 12px;
+  }
+  .field-label { display: block; font-weight: 600; margin-bottom: 6px; }
+  .list-inputs { display: grid; gap: 6px; }
+  .list-row { display: flex; gap: 8px; align-items: center; }
+  .list-row span { color: var(--ink-2); font-size: 13px; width: 18px; text-align: right; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    border: 1px solid var(--line); background: var(--surface); border-radius: 99px;
+    padding: 4px 12px; cursor: pointer; font-size: 14px;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .ws-table { width: 100%; border-collapse: collapse; }
+  .ws-table th { text-align: left; font-size: 13px; color: var(--ink-2); font-weight: 600; padding: 0 4px 6px; vertical-align: bottom; }
+  .ws-table td { padding: 3px 4px; vertical-align: top; }
+  .ws-table td.rownum { width: 20px; color: var(--ink-2); font-size: 13px; padding-top: 10px; }
+  .ws-table textarea { min-height: 42px; }
+
+  /* Plot bar (shown above sheets that contain the six plot stages) */
+  .stagebar {
+    display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 6px;
+    align-items: end; height: 100px; margin: 4px 0 4px;
+  }
+  .stage-col { display: flex; flex-direction: column; justify-content: flex-end; height: 100%; cursor: pointer; border: 0; background: none; padding: 0; }
+  .stage-bar { border-radius: 6px 6px 0 0; background: var(--stage-empty); transition: background .2s; }
+  .stage-col.filled .stage-bar { background: var(--accent); }
+  .stage-names { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 6px; }
+  .stage-names span { font-size: 12px; text-align: center; color: var(--ink-2); line-height: 1.25; }
+
+  /* Messages */
+  .banner {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 10px 12px; border-radius: var(--radius); margin-bottom: 14px;
+    border: 1px solid;
+  }
+  .banner p { margin: 0; flex: 1; }
+  .banner.error { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+  .banner.ok { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .banner.warn { background: var(--warn-soft); border-color: var(--warn); color: var(--warn); }
+  .banner button { border: 0; background: none; cursor: pointer; color: inherit; font-size: 18px; line-height: 1; }
+  .label-list { margin: 0; padding-left: 20px; }
+  .label-list li { margin-bottom: 4px; }
+
+  /* Lesson plan & rubric */
+  .plan-text { min-height: 60vh; font-size: 14px; line-height: 1.55; white-space: pre-wrap; }
+  .rubric-table { width: 100%; border-collapse: collapse; background: var(--surface); }
+  .rubric-table th, .rubric-table td { border: 1px solid var(--line); padding: 8px; vertical-align: top; font-size: 13.5px; }
+  .rubric-table thead th { background: var(--surface-2); text-align: left; }
+  .rubric-table tbody th { width: 20%; text-align: left; background: var(--surface-2); }
+  .rubric-table .score-col { width: 9%; }
+  .rubric-bands { font-size: 13.5px; color: var(--ink-2); }
+
+  #print-area { display: none; }
+
+  /* In-page dialogs */
+  .dlg-overlay {
+    position: fixed; inset: 0; z-index: 50; background: var(--overlay);
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .dlg {
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 10px; width: 100%; max-width: 640px; max-height: 90%; overflow: auto;
+    padding: 18px 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, .3);
+  }
+  .dlg h2 { margin: 0 0 8px; font-size: 18px; }
+  .dlg p { margin: 0 0 10px; }
+  .dlg-code { font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: 12.5px; min-height: 200px; }
+  .dlg-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; margin-top: 12px; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 1100px) {
+    .app { grid-template-columns: 240px minmax(0, 1fr); }
+    .tb-field input { width: 170px; }
+    .main { padding: 16px 18px 32px; }
+  }
+  @media (max-width: 760px) {
+    .app {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+      grid-template-areas: "top" "side" "main" "foot";
+    }
+    .sidebar { border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; max-height: 30vh; }
+    .tb-field input { width: 100%; }
+  }
+
+  /* ---------- PRINT (A4) ---------- */
+  @page { size: A4; margin: 15mm 15mm; }
+  @media print {
+    body { background: #fff; color: #000; font-size: 11pt; }
+    .app { display: none !important; }
+    #print-area { display: block; }
+    .print-section { page-break-after: always; break-after: page; }
+    .print-section:last-child { page-break-after: auto; break-after: auto; }
+    .print-section h2 { font-size: 14pt; margin: 0 0 6pt; }
+    .print-head { font-size: 10.5pt; margin: 0 0 8pt; border-bottom: 1px solid #000; padding-bottom: 6pt; }
+    .print-head div { margin-bottom: 3pt; }
+    .print-note { font-size: 10pt; font-style: italic; margin: 0 0 8pt; }
+    .print-plan { white-space: pre-wrap; font-size: 11pt; line-height: 1.45; }
+    .p-field { margin: 0 0 9pt; page-break-inside: avoid; break-inside: avoid; }
+    .p-label { font-weight: 600; }
+    .p-line { border-bottom: 1px solid #000; height: 1.75em; }
+    .p-opts { margin-top: 3pt; }
+    .p-opts span { margin-right: 14pt; white-space: nowrap; }
+    .p-table, .rubric-table { width: 100%; border-collapse: collapse; background: #fff; }
+    .p-table th, .p-table td, .rubric-table th, .rubric-table td { border: 1px solid #000; font-size: 10pt; padding: 4pt 5pt; vertical-align: top; text-align: left; }
+    .p-table td { height: 2.4em; }
+    .rubric-table thead th, .rubric-table tbody th, .p-table th { background: #eee; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .rubric-table tr { page-break-inside: avoid; break-inside: avoid; }
+    .rubric-bands { color: #000; font-size: 10pt; }
+    .print-std { font-size: 9.5pt; margin-top: 10pt; }
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar" id="topbar"></header>
+  <nav class="sidebar" id="sidebar" aria-label="Парақтар"></nav>
+  <main class="main" id="main"><div class="main-inner" id="main-inner"></div></main>
+  <footer class="footer" id="footer"></footer>
+</div>
+<div id="print-area" aria-hidden="true"></div>
+<input type="file" id="import-file" accept=".json,application/json" hidden>
+
+<script>
+'use strict';
+/* ==============================================================================
+   CONFIG
+   ============================================================================== */
+const CONFIG = {
+  APP_ID: 'kobem-talday',
+  DATA_VERSION: 2,
+  STORAGE_KEY: 'kobem-talday:v2',
+  LESSON_MINUTES: 45,
+  MAX_IMPORT_BYTES: 1024 * 1024,   // 1 MB
+  MAX_TEXT_LENGTH: 20000,          // per text value
+  LIST_ROWS: 3,                    // rows of a "list" field
+  LIST_MIN_FILLED: 2,              // list counts as complete with this many rows
+  GRADES: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+  DEFAULT_GENRE: 'folklore',
+  RUBRIC_SHEET: 'ws-31-rubric',            // shown as the "Rubric" output
+  PRINT_ONLY_AUDIENCES: ['student'],       // student sheets: blank printout only
+  TEACHER_AUDIENCES: ['teacher'],
+  // Sheet whose fields draw the plot curve; heights in % per stage.
+  PLOT_SHEET: 'ws-04-plot',
+  PLOT_CURVE: { exposition: 20, trigger: 35, development: 55, tension: 78, climax: 100, resolution: 30 },
+};
+
+/* Genres are data. A sheet appears for a genre when its "genres" list contains
+   "all" or the genre id. `activities` picks the lesson-plan activity set. */
+const GENRES = {
+  folklore: { label: 'Фольклор (ертегі, жыр-дастан)', activities: 'folklore' },
+  prose:    { label: 'Проза (әңгіме, повесть, роман)', activities: 'default' },
+  poetry:   { label: 'Поэзия',                        activities: 'poetry' },
+  drama:    { label: 'Драма',                         activities: 'drama' },
+  children: { label: 'Балалар әдебиеті',              activities: 'default' },
+};
+
+/* ==============================================================================
+   STRINGS — all UI text (Kazakh). A Russian object can be added later.
+   ============================================================================== */
+const STRINGS = {
+  appTitle: 'Көркем шығарманы талдау',
+  appSubtitle: 'Мұғалімге арналған жұмыс дәптері',
+  genre: 'Жанр',
+  workTitle: 'Шығарма',
+  workTitlePh: 'Мысалы: «Ер Төстік»',
+  author: 'Автор',
+  authorPh: 'Автор немесе «халық ауыз әдебиеті»',
+  grade: 'Сынып',
+  gradePh: '—',
+  gradeSuffix: '-сынып',
+  exportBtn: 'JSON экспорттау',
+  importBtn: 'JSON импорттау',
+  printBtn: 'Басып шығару',
+  resetBtn: 'Жаңа талдау',
+  resetConfirm: 'Барлық жауап өшіріліп, жаңа талдау басталады. Алдымен JSON экспорттауды ұмытпаңыз. Жалғастырасыз ба?',
+  groupAnalysis: 'Талдау парақтары',
+  groupTeacher: 'Мұғалімге',
+  groupStudent: 'Оқушыға (басып тарату)',
+  groupOutputs: 'Нәтиже',
+  lessonPlan: 'Сабақ жоспары (45 мин)',
+  rubric: 'Бағалау рубрикасы',
+  sheetKicker: '{n}-парақ',
+  guideRef: 'Нұсқаулықтың {guide}-тармағымен бірге қолданыңыз.',
+  standardRef: 'Бағдарламалық сәйкестік: {standard}',
+  prev: '← Алдыңғы',
+  next: 'Келесі →',
+  progress: '{done} / {total} парақ толтырылды',
+  complete: 'толтырылды',
+  saved: 'Сақталды',
+  saving: 'Сақталуда…',
+  storageOff: 'Браузерге сақталмайды — JSON экспорттаңыз',
+  privacy: 'Құрал оқушылардың жеке деректерін сақтамайды: браузерде тек талдау мазмұны, шығарма атауы мен авторы сақталады.',
+  close: 'Жабу',
+  selectPh: '— таңдаңыз —',
+  printBlank: 'Бос парақты басып шығару',
+  printOnlyNote: 'Бұл парақты оқушы толтырады. Құрал оқушы жауаптарын сақтамайды — бос парақты басып шығарып, таратыңыз.',
+  printOnlyFields: 'Парақтағы сұрақтар:',
+  plotBarLabel: 'Сюжет сатыларының көрнекі сызбасы. Толтырылған саты боялады.',
+  planIntro: 'Жоспар жұмыс парақтарындағы жауаптардан автоматты түрде құрылады. Мәтінді еркін өңдей аласыз — өзгерістер сақталады.',
+  planEditedNote: 'Сіз жоспарды қолмен өңдедіңіз. Жауаптар өзгерсе, «Жауаптардан қайта құру» батырмасын басыңыз.',
+  planRegenerate: 'Жауаптардан қайта құру',
+  planConfirmRegen: 'Қолмен енгізген өзгерістер жойылады. Жоспарды қайта құрасыз ба?',
+  planSources: 'Жоспар мына парақтардан құрылады: {list}. Бос орындар {empty} деп белгіленеді.',
+  planPrint: 'Жоспарды басып шығару',
+  planTimeError: 'Шаблон қатесі: кезеңдер ұзақтығының қосындысы {sum} мин, ал {need} мин болуы керек.',
+  rubricIntro: 'Басып шығарып, оқушы жұмысын бағалауға пайдаланыңыз. Балл мен рефлексия қағазда толтырылады.',
+  rubricPrint: 'Рубриканы басып шығару',
+  criterion: 'Критерий',
+  score: 'Балл',
+  total: 'Жалпы балл',
+  pointsSuffix: 'балл',
+  levelNames: { 3: 'жоғары', 2: 'орта', 1: 'бастапқы' },
+  empty: '[толтырылмаған]',
+  untitled: '(атауы көрсетілмеген)',
+  minutes: 'мин',
+  checkbox: '☐',
+  importOk: 'Талдау сәтті жүктелді.',
+  importConfirm: 'Ағымдағы талдау импортталған файлмен ауыстырылады. Жалғастырасыз ба?',
+  errNotJson: 'Файлды оқу мүмкін болмады: бұл дұрыс JSON файлы емес.',
+  errWrongApp: 'Бұл файл «Көркем шығарманы талдау» құралына тиесілі емес.',
+  errNewer: 'Файл құралдың жаңарақ нұсқасында жасалған (нұсқа {v}). Бұл нұсқа оны оқи алмайды.',
+  errOlder: 'Файл құралдың ескі нұсқасында (нұсқа {v}) жасалған, оның құрылымы басқа. Талдауды жаңа парақтарда қайта толтырыңыз.',
+  errStructure: 'Файлдың құрылымы қате: «{path}» өрісінде {problem}.',
+  errUnknownGenre: 'Файлдағы жанр белгісіз: «{genre}».',
+  errTooLarge: 'Файл тым үлкен (1 МБ-тан аспауы керек).',
+  errRead: 'Файлды оқу кезінде қате шықты.',
+  probObject: 'нысан (object) күтілді',
+  probString: 'мәтін күтілді',
+  probArray: 'тізім күтілді',
+  probTooLong: 'мәтін тым ұзын',
+  probTooMany: 'элементтер тым көп',
+  probOption: 'рұқсат етілмеген мән',
+  probBoolean: 'иә/жоқ мәні күтілді',
+  probNumber: 'сан күтілді',
+  confirmTitle: 'Растаңыз',
+  cancel: 'Бас тарту',
+  confirmYes: 'Иә, жалғастыру',
+  exportTitle: 'Талдаудың сақтық көшірмесі (JSON)',
+  exportHelpFile: 'Талдауды .json файлы ретінде жүктеп алыңыз немесе мәтінді көшіріп сақтаңыз. Кейін «JSON импорттау» арқылы қайта жүктей аласыз.',
+  exportHelpEmbedded: '«Көшіру» басып, мәтінді блокнотқа, хатқа немесе мессенджерге қойып сақтаңыз. Кейін «JSON импорттау» терезесіне қойып, талдауды қайта жүктей аласыз.',
+  copyBtn: 'Көшіру',
+  copyPlan: 'Мәтінді көшіру',
+  copied: 'Көшірілді ✓',
+  copySelected: 'Белгіленді — Ctrl+C басыңыз',
+  downloadBtn: 'Файл ретінде жүктеу',
+  importTitle: 'Талдауды жүктеу',
+  importHelp: 'Бұрын сақталған JSON мәтінін осында қойыңыз немесе .json файлын таңдаңыз.',
+  importPastePh: '{ "app": "kobem-talday", … }',
+  importFromFile: 'Файлдан таңдау',
+  importApply: 'Жүктеу',
+  importEmpty: 'Алдымен JSON мәтінін қойыңыз.',
+  printTitle: 'Басып шығару',
+  printBlocked: 'Сілтеме арқылы ашылған бетте браузер басып шығаруға рұқсат бермейді. Басып шығару үшін HTML файлын жүктеп алып, компьютерде ашыңыз.',
+  printBlockedPlan: 'Сілтеме арқылы ашылған бетте браузер басып шығаруға рұқсат бермейді. Жоспар мәтінін көшіріп, Word құжатына қойыңыз немесе HTML файлын компьютерде ашып, сол жерден басып шығарыңыз.',
+};
+
+/** Simple {placeholder} formatter for STRINGS. */
+function t(key, vars) {
+  let s = STRINGS[key] != null ? STRINGS[key] : key;
+  if (vars) for (const k in vars) s = s.split('{' + k + '}').join(String(vars[k]));
+  return s;
+}
+</script>
+
+<script id="worksheets-data">
+'use strict';
+/* ==============================================================================
+   WORKSHEETS — data block: the workbook's 31 sheets, verbatim from the
+   teacher's JSON. Replace this object with a newer export to update wording.
+   ============================================================================== */
+const WORKBOOK = {
+  "_comment": "Көркем шығарманы талдау — 31 парақтың деректері. genres: poetry, prose, drama, children, folklore, all. field types: text, long, list (3 жол), table (бағандар), dropdown (options), rubric.",
+  "header": ["Оқушының аты-жөні", "Сынып", "Күні", "Шығарма", "Автор"],
+  "worksheets": [
+    {
+      "id": "ws-01-first-reading", "order": 1, "title": "Шығарманы алғашқы оқу", "genres": ["all"], "guide": "2.1", "standard": "5.1.4.1–9.1.4.1",
+      "fields": [
+        {"id": "genre", "type": "text", "label": "Жанры"},
+        {"id": "size", "type": "text", "label": "Көлемі (шамамен беті/тарауы)"},
+        {"id": "first_impression", "type": "long", "label": "Мәтінді оқып болғанда қандай көңіл-күй пайда болды? Неге?"},
+        {"id": "episode", "type": "long", "label": "Қай эпизод сізге ең көп әсер етті? Қысқаша сипаттаңыз"},
+        {"id": "unclear", "type": "long", "label": "Түсініксіз тұстар, күмән тудырған немесе сұрақ туғызған жерлер"},
+        {"id": "hypothesis", "type": "long", "label": "Алғашқы болжам: шығарманың негізгі мәселесі не туралы болуы мүмкін?"}
+      ]
+    },
+    {
+      "id": "ws-02-theme-idea", "order": 2, "title": "Тақырып пен идея", "genres": ["all"], "guide": "2.2, 2.3", "standard": "5.1.1.1–9.1.1.1; 5.1.2.1–9.1.2.1",
+      "fields": [
+        {"id": "theme_word", "type": "text", "label": "Тақырыпты бір сөзбен белгілеңіз"},
+        {"id": "theme_sentence", "type": "long", "label": "Тақырыпты толық сөйлеммен тұжырымдаңыз («Шығармада ... мәселесі ... арқылы көрсетіледі»)"},
+        {"id": "idea", "type": "long", "label": "Идеяны анықтаңыз: оқиғалар мен тағдырлар бізге не туралы ой салады? Автор нені қайта қарауға шақырады?"},
+        {"id": "proof", "type": "list", "label": "Дәлелдеу: идеяны растайтын кемінде 2 эпизод/деталь/дәйексөз"},
+        {"id": "analytic", "type": "long", "label": "Аналитикалық сұрақ: басқа кейіпкер немесе басқа жағдай арқылы идея қалай өзгерер еді?"}
+      ]
+    },
+    {
+      "id": "ws-03-problematics", "order": 3, "title": "Проблематика", "genres": ["all"], "guide": "2.4", "standard": "5.1.2.1–9.1.2.1",
+      "fields": [
+        {"id": "issues", "type": "list", "label": "Шығармада көтерілген мәселелер (кемінде 2)"},
+        {"id": "main_issue", "type": "long", "label": "Негізгі мәселені таңдап, нақты қандай қайшылықтан туындайтынын сипаттаңыз"},
+        {"id": "resolved", "type": "dropdown", "label": "Мәселе шығармада шешіле ме?", "options": ["шешіледі", "ашық қалады", "ішінара шешіледі"]},
+        {"id": "resolved_why", "type": "long", "label": "Автор мұны неге шешеді/ашық қалдырады?"},
+        {"id": "relevance", "type": "long", "label": "Қазіргі өзектілігі: бүгінгі оқырманға қаншалықты таныс? Нақты мысал"}
+      ]
+    },
+    {
+      "id": "ws-04-plot", "order": 4, "title": "Сюжет картасы", "genres": ["all"], "guide": "2.6, 4.1", "standard": "5.2.1.1–9.2.1.1",
+      "fields": [
+        {"id": "exposition", "type": "long", "label": "Экспозиция (оқиғаға дейінгі жағдай)"},
+        {"id": "trigger", "type": "long", "label": "Байланыс (бәрін өзгерткен оқиға)"},
+        {"id": "development", "type": "long", "label": "Оқиғаның дамуы (негізгі 2–3 оқиға, өсу ретімен)"},
+        {"id": "tension", "type": "long", "label": "Шиеленіс (шешуші сәтке жақындау)"},
+        {"id": "climax", "type": "long", "label": "Шарықтау шегі (ең жоғары нүкте)"},
+        {"id": "resolution", "type": "long", "label": "Шешім (қорытынды)"},
+        {"id": "analytic", "type": "long", "label": "Автор қай сатыға ең көп орын берді және бұл таңдаудың мәні неде?"}
+      ]
+    },
+    {
+      "id": "ws-05-composition", "order": 5, "title": "Композиция картасы", "genres": ["all"], "guide": "2.7", "standard": "5.2.1.1–9.2.1.1",
+      "fields": [
+        {"id": "beginning", "type": "long", "label": "Шығарма қалай басталады?"},
+        {"id": "ending", "type": "long", "label": "Шығарма немен аяқталады?"},
+        {"id": "techniques", "type": "tags", "label": "Композициялық тәсіл: шеңберлі құрылым, ретроспекция, параллель желі, лирикалық шегініс (қайсысы бар, мысалмен)", "options": ["шеңберлі құрылым", "ретроспекция", "параллель желі", "лирикалық шегініс"]},
+        {"id": "analytic", "type": "long", "label": "Оқиғалардың берілу реті неге осылай таңдалған? Хронологияны бұзу немен түсіндіріледі?"}
+      ]
+    },
+    {
+      "id": "ws-06-conflict", "order": 6, "title": "Конфликт картасы", "genres": ["all"], "guide": "2.8, 4.2", "standard": "5.2.1.1–9.2.1.1",
+      "fields": [
+        {"id": "main_conflict", "type": "text", "label": "Негізгі конфликт (бір сөйлеммен)"},
+        {"id": "conflict_type", "type": "dropdown", "label": "Конфликт түрі", "options": ["тұлға–тұлға", "тұлға–қоғам", "тұлға–табиғат", "тұлға–өзі"]},
+        {"id": "external", "type": "long", "label": "Сыртқы конфликт"},
+        {"id": "internal", "type": "long", "label": "Ішкі конфликт (болса)"},
+        {"id": "analytic", "type": "long", "label": "Ішкі және сыртқы конфликт бір-бірімен қалай байланысады? Біреуі екіншісін тудыра ма?"}
+      ]
+    },
+    {
+      "id": "ws-07-character", "order": 7, "title": "Кейіпкер картасы", "genres": ["all"], "guide": "3", "standard": "5.1.3.1–9.1.3.1",
+      "fields": [
+        {"id": "character", "type": "text", "label": "Талданатын кейіпкер"},
+        {"id": "portrait", "type": "long", "label": "Портрет"},
+        {"id": "traits", "type": "list", "label": "Мінез (3 қасиет, әрқайсысын дәлелмен)"},
+        {"id": "actions", "type": "long", "label": "Негізгі іс-әрекеті"},
+        {"id": "goal", "type": "text", "label": "Мақсаты"},
+        {"id": "contradiction", "type": "long", "label": "Ішкі қайшылығы"},
+        {"id": "values", "type": "long", "label": "Құндылықтары"},
+        {"id": "relations", "type": "long", "label": "Басқа кейіпкерлермен қатынасы"},
+        {"id": "analytic", "type": "long", "label": "Кейіпкердің сөзі мен ісі сәйкес келе ме? Қайшылық болса, неден туындайды?"}
+      ]
+    },
+    {
+      "id": "ws-08-evolution", "order": 8, "title": "Кейіпкер эволюциясы", "genres": ["all"], "guide": "3 (соңғы тармақ), 2.10", "standard": "5.1.3.1–9.1.3.1",
+      "fields": [
+        {"id": "start", "type": "long", "label": "Бастапқы күй: шығарма басында кейіпкер қандай еді?"},
+        {"id": "trigger", "type": "long", "label": "Түрткі оқиға(лар): өзгеріске не себеп болды?"},
+        {"id": "end", "type": "long", "label": "Соңғы күй: шығарма соңында кейіпкер қандай?"},
+        {"id": "analytic", "type": "long", "label": "Кейіпкер өзгермесе, неге? Өзгерсе, өзгеріс шынайы ма, әлде тым кенет пе?"}
+      ]
+    },
+    {
+      "id": "ws-09-relations", "order": 9, "title": "Кейіпкерлер арасындағы байланыс картасы", "genres": ["all"], "guide": "2.9", "standard": "5.1.3.1–9.1.3.1",
+      "fields": [
+        {"id": "characters", "type": "table", "label": "Бас кейіпкер және 2–3 қосалқы кейіпкер, олардың функциясы", "columns": ["Кейіпкер", "Функциясы (салыстыру үшін, қайшылық тудыру үшін, көмекші, сенімді адам т.б.)"], "rows": 4},
+        {"id": "analytic", "type": "long", "label": "Осы қосалқы кейіпкерлердің бірі болмаса, бас кейіпкердің бейнесі қалай кедейленер еді?"}
+      ]
+    },
+    {
+      "id": "ws-10-author-position", "order": 10, "title": "Автор позициясын анықтау", "genres": ["all"], "guide": "2.11", "standard": "5.2.2.1–9.2.2.1",
+      "fields": [
+        {"id": "attitude", "type": "dropdown", "label": "Автор бас кейіпкерге қалай қарайды?", "options": ["сынайды", "ақтайды", "түсіністікпен қарайды", "бейтарап"]},
+        {"id": "evidence", "type": "list", "label": "Автордың қатынасын білдіретін 2 деталь, сөз тіркесі немесе интонация"},
+        {"id": "analytic", "type": "long", "label": "Автор позициясы кейіпкердің өз пікірімен сәйкес пе, әлде қайшы ма? Мұны қалай білдіңіз?"}
+      ]
+    },
+    {
+      "id": "ws-11-narrator", "order": 11, "title": "Нарраторды талдау", "genres": ["all"], "guide": "2.12", "standard": "5.2.2.1–9.2.2.1",
+      "fields": [
+        {"id": "narrator", "type": "dropdown", "label": "Оқиғаны кім әңгімелейді?", "options": ["I жақтан (кейіпкердің өзі)", "III жақтан (бәрін білуші)", "басқа"]},
+        {"id": "view", "type": "dropdown", "label": "Баяндаушының көзқарасы", "options": ["толық", "шектеулі"]},
+        {"id": "view_detail", "type": "long", "label": "Көзқарасы қаншалықты толық немесе шектеулі? Неге?"},
+        {"id": "analytic", "type": "long", "label": "Оқиғаны басқа кейіпкер әңгімелесе, баяндау қалай өзгерер еді? Қандай ақпарат қосылар/жоғалар еді?"}
+      ]
+    },
+    {
+      "id": "ws-12-time-space", "order": 12, "title": "Уақыт пен кеңістікті талдау", "genres": ["all"], "guide": "2.13, 2.14", "standard": "5.2.1.1–9.2.1.1 (жанама)",
+      "fields": [
+        {"id": "art_time", "type": "long", "label": "Көркем уақыт: автор қай сәтті баяу, толық сипаттайды, қайсысын жылдам өткізеді?"},
+        {"id": "art_space", "type": "long", "label": "Көркем кеңістік: оқиға қай кеңістікте өтеді (үй, дала, мектеп, қала т.б.)? Символдық/психологиялық мәні бар ма?"},
+        {"id": "analytic", "type": "long", "label": "Кеңістіктің сипаттамасы кейіпкердің көңіл-күйімен үндесе ме, қайшы ма?"}
+      ]
+    },
+    {
+      "id": "ws-13-detail", "order": 13, "title": "Көркемдік детальдарды анықтау", "genres": ["all"], "guide": "2.15", "standard": "5.1.4.1–9.1.4.1 (жанама)",
+      "fields": [
+        {"id": "detail", "type": "text", "label": "Мәтіннен бір деталь"},
+        {"id": "repeats", "type": "long", "label": "Бұл деталь қайталана ма? Қайталанса, әр жолы қандай контексте кездеседі?"},
+        {"id": "analytic", "type": "long", "label": "Осы деталь болмаса, эпизодтың/шығарманың мәні қалай өзгерер еді?"}
+      ]
+    },
+    {
+      "id": "ws-14-symbols", "order": 14, "title": "Символдар мен образдар", "genres": ["all"], "guide": "2.16, 2.17", "standard": "5.2.3.1–9.2.3.1",
+      "fields": [
+        {"id": "symbol", "type": "text", "label": "Шығармадағы символдық бейне"},
+        {"id": "meanings", "type": "list", "label": "Символдың мүмкін болатын кемінде 2 мағынасы (әрқайсысын дәлелдеңіз)"},
+        {"id": "image_system", "type": "long", "label": "Негізгі 3 образ (кейіпкер, табиғат/орта, зат/символ) және олардың байланысы"}
+      ]
+    },
+    {
+      "id": "ws-15-language", "order": 15, "title": "Көркем тілге талдау", "genres": ["all"], "guide": "2.18, 2.19", "standard": "5.2.3.1–9.2.3.1",
+      "fields": [
+        {"id": "layer", "type": "dropdown", "label": "Абзацтағы сөздік қабат", "options": ["кітаби", "ауызекі", "диалект"]},
+        {"id": "paragraph", "type": "long", "label": "Мәтіннен бір абзац (көшіріп жазыңыз)"},
+        {"id": "trope", "type": "text", "label": "Тапқан троп немесе фигура"},
+        {"id": "trope_analysis", "type": "long", "label": "Автор нені немен, не үшін салыстырады/бейнелейді?"},
+        {"id": "analytic", "type": "long", "label": "Осы тілдік құрал болмаса (қарапайым сөзбен алмастырылса), сөйлемнің әсері қалай өзгерер еді?"}
+      ]
+    },
+    {
+      "id": "ws-16-quotes", "order": 16, "title": "Дәйексөзбен жұмыс", "genres": ["all"], "guide": "1, 11 (дәйексөз картасы)", "standard": "5.1.4.1–9.1.4.1",
+      "fields": [
+        {"id": "claim", "type": "long", "label": "Тұжырым (растағыңыз келетін ой)"},
+        {"id": "quotes", "type": "list", "label": "3 қысқа дәйексөз, әрқайсысына түсініктемемен"},
+        {"id": "conclusion", "type": "long", "label": "Қорытынды: үш дәйексөз бірігіп, тұжырымды қалай толық дәлелдейді?"}
+      ]
+    },
+    {
+      "id": "ws-17-close-reading", "order": 17, "title": "Close reading", "genres": ["all"], "guide": "5", "standard": "5.1.4.1–9.1.4.1",
+      "fields": [
+        {"id": "passage", "type": "text", "label": "Талданатын үзінді (беті/тарауы)"},
+        {"id": "word", "type": "text", "label": "Назарыңызды аударған сөз/тіркес (көшіріп жазыңыз)"},
+        {"id": "why", "type": "long", "label": "Неге дәл осы сөз таңдалған деп ойлайсыз?"},
+        {"id": "synonym", "type": "text", "label": "Синонимі"},
+        {"id": "change", "type": "long", "label": "Синонимімен алмастырғанда мағына қалай өзгереді?"},
+        {"id": "purpose", "type": "long", "label": "Қорытынды: автор мұны не үшін қолданды?"}
+      ]
+    },
+    {
+      "id": "ws-18-poetry", "order": 18, "title": "Поэзияны талдау", "genres": ["poetry"], "guide": "6", "standard": "5.1.1.1–9.1.1.1; 5.2.3.1–9.2.3.1",
+      "fields": [
+        {"id": "lyric_subject", "type": "long", "label": "Лирикалық субъект пен көңіл-күй"},
+        {"id": "theme_idea", "type": "long", "label": "Тақырып пен алғашқы идея"},
+        {"id": "composition", "type": "long", "label": "Композиция: шумақтардың байланысы, ой дамуы"},
+        {"id": "images", "type": "long", "label": "Негізгі образдар мен символдар"},
+        {"id": "tropes", "type": "long", "label": "Троптар (метафора, теңеу, эпитет): мысал және қызметі"},
+        {"id": "sound", "type": "long", "label": "Дыбыстық-ырғақтық ұйымдасу: ұйқас түрі, буын, дыбыс қайталаулары"},
+        {"id": "wholeness", "type": "long", "label": "Көркемдік тұтастық: барлық элементтер қалай бір мақсатқа қызмет етеді?"}
+      ]
+    },
+    {
+      "id": "ws-19-prose", "order": 19, "title": "Проза талдау", "genres": ["prose"], "guide": "7", "standard": "5.1.1.1–9.1.1.1",
+      "fields": [
+        {"id": "prose_genre", "type": "dropdown", "label": "Жанры", "options": ["әңгіме", "повесть", "роман"]},
+        {"id": "structure", "type": "long", "label": "Осы жанрға тән құрылымдық ерекшелік мәтінде қалай көрінеді?"},
+        {"id": "emphasis", "type": "long", "label": "Қай екпінге басымдық беру керек: деталь, кейіпкер эволюциясы, желілер жүйесі?"},
+        {"id": "analytic", "type": "long", "label": "Шығарма басқа жанрда (мысалы, әңгіме орнына роман) жазылса, мазмұн қалай өзгерер еді?"}
+      ]
+    },
+    {
+      "id": "ws-20-drama", "order": 20, "title": "Драмалық шығарманы талдау", "genres": ["drama"], "guide": "8", "standard": "5.1.1.1–9.1.1.1",
+      "fields": [
+        {"id": "drama_type", "type": "dropdown", "label": "Түрі", "options": ["трагедия", "комедия", "драма"]},
+        {"id": "remarks", "type": "table", "label": "Екі ремарка және олардың қызметі (орын/уақыт/қимыл/интонация)", "columns": ["Ремарка", "Қызметі"], "rows": 2},
+        {"id": "dialogue", "type": "long", "label": "Диалог үзіндісі: ол арқылы не ашылады (ақпарат, мінез, конфликт)?"},
+        {"id": "conflict", "type": "text", "label": "Драмалық конфликт (бір сөйлеммен). Ол қай көріністен басталады?"},
+        {"id": "analytic", "type": "long", "label": "Автор кейіпкердің дұрыс/бұрыстығын тікелей айта ма, әлде оны кейіпкердің өз сөзі мен ісінен қорытасыз ба? Дәлелдеңіз"}
+      ]
+    },
+    {
+      "id": "ws-21-children", "order": 21, "title": "Балалар әдебиетін талдау", "genres": ["children"], "guide": "9", "standard": "5.1.3.1–9.1.3.1",
+      "fields": [
+        {"id": "themes", "type": "table", "label": "Мәселелердің 3-і (балалық шақ бейнесі, ата-ана мен бала қарым-қатынасы, бала психологиясы, қиял, ойын, қорқыныш, достық, отбасы, моральдық таңдау, еркіндік, жауапкершілік, баланың қоғамдағы орны) және әрқайсысын эпизодпен дәлелдеу", "columns": ["Мәселе", "Дәлел (эпизод)"], "rows": 3},
+        {"id": "analytic", "type": "long", "label": "Шығарманы тек тәрбиелік мән тұрғысынан қорытсаңыз, не жоғалар еді?"}
+      ]
+    },
+    {
+      "id": "ws-22-comparison", "order": 22, "title": "Салыстырмалы талдау", "genres": ["all"], "guide": "11 (салыстырмалы талдау)", "standard": "3.1.1",
+      "fields": [
+        {"id": "second_work", "type": "text", "label": "Салыстырылатын екінші шығарма немесе кейіпкер"},
+        {"id": "criterion", "type": "dropdown", "label": "Салыстыру өлшемі", "options": ["тақырып", "кейіпкер", "конфликт", "финал"]},
+        {"id": "similarities", "type": "long", "label": "Ортақтық"},
+        {"id": "differences", "type": "long", "label": "Айырмашылық"},
+        {"id": "conclusion", "type": "long", "label": "Бұл ұқсастық/айырмашылық әр автордың жеке таңдауы туралы не айтады?"}
+      ]
+    },
+    {
+      "id": "ws-23-interpretation", "order": 23, "title": "Қорытынды интерпретация", "genres": ["all"], "guide": "2.22", "standard": "3.1.1–3.2.1", "note": "Барлық басқа парақтар толтырылғаннан кейін ғана",
+      "fields": [
+        {"id": "interpretation", "type": "long", "label": "Менің интерпретациям (бір абзацта)"},
+        {"id": "evidence", "type": "list", "label": "Интерпретацияны растайтын 3 мәтіндік дәлел"},
+        {"id": "counter", "type": "long", "label": "Менімен келіспейтін оқырман қандай қарсы дәлел келтіре алар еді?"},
+        {"id": "revisit", "type": "long", "label": "1-парақтағы алғашқы болжам қаншалықты дәл болды, немен ерекшеленеді?"}
+      ]
+    },
+    {
+      "id": "ws-24-teacher-adapt", "order": 24, "title": "Шығарманы сабаққа бейімдеу", "genres": ["all"], "guide": "10, 11", "standard": "5.2.4.1–9.2.4.1", "audience": "teacher",
+      "fields": [
+        {"id": "grade", "type": "text", "label": "Сынып деңгейі"},
+        {"id": "q_understand", "type": "long", "label": "Түсіну деңгейіндегі 1 сұрақ"},
+        {"id": "q_analyze", "type": "long", "label": "Талдау деңгейіндегі 1 сұрақ"},
+        {"id": "q_evaluate", "type": "long", "label": "Бағалау/жасау деңгейіндегі 1 сұрақ"},
+        {"id": "method", "type": "text", "label": "Қолданатын әдіс (11-бөлім) және неге"}
+      ]
+    },
+    {
+      "id": "ws-25-lesson-plan", "order": 25, "title": "Сабақ жоспарын құру (ҚМЖ)", "genres": ["all"], "guide": "ҚМЖ шаблоны", "standard": "5.х.х.1–9.х.х.1", "audience": "teacher",
+      "fields": [
+        {"id": "meta", "type": "table", "label": "Мектеп, мұғалім, күні, сынып, қатысқандар, қатыспағандар", "columns": ["Бөлім", "Мазмұны"], "rows": 6},
+        {"id": "topic", "type": "text", "label": "Сабақ тақырыбы"},
+        {"id": "goals", "type": "long", "label": "Сабақ мақсаттары (оқу бағдарламасының коды көрсетілсін)"},
+        {"id": "criteria", "type": "long", "label": "Жетістік критерийлері (оқушы не істей алады)"},
+        {"id": "language_goal", "type": "long", "label": "Тілдік мақсат: оқушылар орындай алады, сөздік қор мен терминдер, пайдалы тіркестер мен сұрақтар"},
+        {"id": "values", "type": "text", "label": "Құндылықтарды дарыту"},
+        {"id": "cross", "type": "text", "label": "Пәнаралық байланыстар"},
+        {"id": "prior", "type": "text", "label": "Алдыңғы меңгерілген білім"},
+        {"id": "stages", "type": "table", "label": "Сабақ барысы", "columns": ["Сабақтың кезеңі (уақыт)", "Іс-әрекет", "Ресурстар"], "rows": 3},
+        {"id": "differentiation", "type": "long", "label": "Саралау: көмек қажет оқушыларға не, қабілеті жоғарыға не тапсырма"},
+        {"id": "assessment", "type": "long", "label": "Бағалау: материалды меңгеру деңгейін қалай тексересіз?"},
+        {"id": "safety", "type": "long", "label": "Денсаулық және қауіпсіздік техникасы"},
+        {"id": "reflection", "type": "long", "label": "Сабақ бойынша рефлексия"},
+        {"id": "good_two", "type": "long", "label": "Сабақтың жақсы өткен екі аспектісі"},
+        {"id": "improve", "type": "long", "label": "Сабақты жақсарту үшін қандай өзгеріс енгізуге болады"},
+        {"id": "notes_students", "type": "long", "label": "Сынып немесе жекелеген оқушылар туралы; келесі сабақта неге көңіл бөлу қажет"}
+      ]
+    },
+    {
+      "id": "ws-26-self-assessment", "order": 26, "title": "Өзін-өзі бағалау", "genres": ["all"], "guide": "", "standard": "", "audience": "student",
+      "fields": [
+        {"id": "best_skill", "type": "long", "label": "Осы шығарманы талдау барысында ең жақсы меңгерген дағдым"},
+        {"id": "hardest", "type": "long", "label": "Мен үшін ең қиын болған бөлім"},
+        {"id": "evidence_score", "type": "dropdown", "label": "Мәтіндік дәлел келтіру дағдымды бағалаймын (1–5)", "options": ["1", "2", "3", "4", "5"]},
+        {"id": "focus", "type": "long", "label": "Келесі шығарманы талдағанда неге көбірек көңіл бөлгім келеді"},
+        {"id": "question", "type": "long", "label": "Мұғалімге/өзіме бір сұрағым"}
+      ]
+    },
+    {
+      "id": "ws-27-motif", "order": 27, "title": "Мотивті бақылау", "genres": ["all"], "guide": "2.23", "standard": "",
+      "fields": [
+        {"id": "motif", "type": "text", "label": "Қайталанатын негізгі мотив (жол, бостандық, айырылысу, ана т.б.)"},
+        {"id": "locations", "type": "table", "label": "Мотивтің кездесу орындары (кемінде 3): бет/тарау, эпизод", "columns": ["Бет/тарау", "Эпизод"], "rows": 3},
+        {"id": "link", "type": "long", "label": "Мотив шығарманың тақырыбы мен идеясымен қалай байланысады?"},
+        {"id": "function", "type": "long", "label": "Автор бұл мотивті не мақсатпен қайталайды (оқиғаны күшейту, сезімді бейнелеу, символдық мән, композицияны біріктіру т.б.)?"},
+        {"id": "reflection", "type": "long", "label": "Рефлексия: мотивті бақылау шығарманы тереңірек түсінуге қалай көмектесті?"}
+      ]
+    },
+    {
+      "id": "ws-28-chronotope", "order": 28, "title": "Хронотоп картасы", "genres": ["all"], "guide": "2.24", "standard": "",
+      "fields": [
+        {"id": "time_type", "type": "dropdown", "label": "Уақыт түрі", "options": ["сызықтық", "циклдік", "үзік-үзік (ретроспекция/флэшбек)"]},
+        {"id": "space_type", "type": "dropdown", "label": "Кеңістік түрі", "options": ["нақты географиялық", "жабық", "ашық", "символдық"]},
+        {"id": "space_desc", "type": "long", "label": "Негізгі оқиға орнын сипаттаңыз"},
+        {"id": "model", "type": "text", "label": "Басым хронотоп үлгісі (М. Бахтин: жол, табалдырық, идиллиялық т.б.) және мәтіндік дәлелі"},
+        {"id": "episodes", "type": "table", "label": "3–4 негізгі эпизод бойынша хронотоп", "columns": ["Эпизод", "Уақыты", "Кеңістігі", "Мәні / қызметі"], "rows": 4},
+        {"id": "reflection", "type": "long", "label": "Рефлексия: хронотоп картасы шығарманың құрылымын түсінуге қалай көмектесті?"}
+      ]
+    },
+    {
+      "id": "ws-29-folklore", "order": 29, "title": "Фольклорлық шығарманы талдау", "genres": ["folklore"], "guide": "12", "standard": "",
+      "fields": [
+        {"id": "folk_genre", "type": "dropdown", "label": "Жанры (ертегі, жыр-дастан, терме, аңыз, басқа)", "options": ["ертегі", "жыр-дастан", "терме", "аңыз", "басқа"]},
+        {"id": "propp", "type": "long", "label": "Пропп функциялары (ертегі болса): қайсысы кездеседі, мәтін мысалымен"},
+        {"id": "formulas", "type": "long", "label": "Формулалық элементтер: басталу/аяқталу формулалары, үштік құрылым, тұрақты эпитеттер"},
+        {"id": "comparison", "type": "long", "label": "Жазба әдебиетпен салыстырғанда ерекшеліктер (авторлық позиция, дараланған психология)"},
+        {"id": "reflection", "type": "long", "label": "Рефлексия: Пропп функцияларын анықтау мәтінді түсінуге қалай көмектесті?"}
+      ]
+    },
+    {
+      "id": "ws-30-modern-perspective", "order": 30, "title": "Заманауи интерпретациялық перспектива", "genres": ["all"], "guide": "13", "standard": "",
+      "fields": [
+        {"id": "perspective", "type": "dropdown", "label": "Таңдалған перспектива", "options": ["Экокритикалық оқылым (13.1)", "Гендерлік оқылым (13.2)", "Постколониалдық сын (13.3)", "Психоаналитикалық талдау (13.4)"]},
+        {"id": "evidence", "type": "long", "label": "Перспектива бойынша 2–3 нақты мысал/дәлел"},
+        {"id": "limits", "type": "long", "label": "Бұл перспективаны қолданудың шектеулері"},
+        {"id": "link", "type": "long", "label": "Жаңа оқылым бастапқы талдауды қалай толықтырады немесе тереңдетеді?"}
+      ]
+    },
+    {
+      "id": "ws-31-rubric", "order": 31, "title": "Оқушы жұмысын бағалау (рубрика)", "genres": ["all"], "guide": "14", "standard": "", "audience": "teacher_or_student",
+      "fields": [
+        {"id": "rubric", "type": "rubric", "label": "Бағалау кестесі (3 — жоғары, 2 — орта, 1 — бастапқы)",
+          "criteria": [
+            {"name": "Мәтіндік дәлел", "levels": {"3": "Нақты, орынды таңдалған, кемінде 2–3 дәйексөз/деталь", "2": "Дәлел бар, бірақ аз немесе жалпылама", "1": "Дәлелсіз немесе мәтінге сәйкес емес тұжырым"}},
+            {"name": "Түсіндіру тереңдігі (2.22)", "levels": {"3": "Дәлел мен қорытынды арасындағы байланыс толық түсіндірілген", "2": "Байланыс бар, бірақ үстірт", "1": "Дәлел мен қорытынды арасында байланыс жоқ"}},
+            {"name": "Құрылымы (11-бөлім)", "levels": {"3": "Тұжырым, дәлел, қорытынды анық бөлінген", "2": "Құрылым бар, бірақ ретсіз", "1": "Құрылымсыз, үзік-үзік пікір"}},
+            {"name": "Терминдерді қолдану (2-бөлім)", "levels": {"3": "Терминдер дұрыс әрі орынды қолданылған", "2": "Терминдер бар, бірақ дәлсіздікпен", "1": "Терминдер қолданылмаған немесе қате қолданылған"}}
+          ],
+          "bands": [
+            {"min": 10, "max": 12, "label": "жоғары деңгей"},
+            {"min": 7, "max": 9, "label": "жеткілікті деңгей"},
+            {"min": 4, "max": 6, "label": "қосымша жұмыс қажет"},
+            {"min": 0, "max": 3, "label": "қайта тапсыру ұсынылады"}
+          ]
+        },
+        {"id": "total", "type": "text", "label": "Жалпы балл (/ 12)"},
+        {"id": "reflection", "type": "long", "label": "Рефлексия: осы рубрика бойынша қай тұсты жақсартар едіңіз?"}
+      ]
+    }
+  ]
+};
+</script>
+
+<script>
+'use strict';
+/* Index of sheets by id (built from WORKBOOK; never edited by hand). */
+const WORKSHEETS = {};
+WORKBOOK.worksheets.slice().sort((a, b) => a.order - b.order).forEach(ws => { WORKSHEETS[ws.id] = ws; });
+
+/* ==============================================================================
+   STATE
+   ============================================================================== */
+let storageAvailable = true;
+let state = freshState();
+let saveTimer = null;
+let banner = null;              // { kind: 'error'|'ok'|'warn', text }
+
+function freshState() {
+  return {
+    app: CONFIG.APP_ID,
+    version: CONFIG.DATA_VERSION,
+    meta: { genre: CONFIG.DEFAULT_GENRE, title: '', author: '', grade: '' },
+    answers: {},
+    lessonPlan: { text: '', edited: false },
+    ui: { step: 'ws-01-first-reading' },
+  };
+}
+
+function genre() { return GENRES[state.meta.genre] || GENRES[CONFIG.DEFAULT_GENRE]; }
+
+function sheetsForGenre() {
+  return Object.values(WORKSHEETS).filter(ws =>
+    ws.genres.includes('all') || ws.genres.includes(state.meta.genre));
+}
+function isPrintOnly(ws) { return CONFIG.PRINT_ONLY_AUDIENCES.includes(ws.audience); }
+function isTeacherSheet(ws) { return CONFIG.TEACHER_AUDIENCES.includes(ws.audience); }
+
+/** Sheets the teacher fills in (they count towards progress). */
+function fillableSheets() {
+  return sheetsForGenre().filter(ws => ws.id !== CONFIG.RUBRIC_SHEET && !isPrintOnly(ws));
+}
+
+/** Navigation groups, in display order. Each step has a unique `key`. */
+function stepGroups() {
+  const sheets = sheetsForGenre().filter(ws => ws.id !== CONFIG.RUBRIC_SHEET);
+  const asStep = ws => ({ key: ws.id, kind: 'sheet', ws: ws });
+  return [
+    { title: t('groupAnalysis'), steps: sheets.filter(ws => !ws.audience).map(asStep) },
+    { title: t('groupTeacher'), steps: sheets.filter(isTeacherSheet).map(asStep) },
+    { title: t('groupStudent'), steps: sheets.filter(isPrintOnly).map(asStep) },
+    { title: t('groupOutputs'), steps: [
+      { key: 'plan', kind: 'plan' },
+      { key: 'rubric', kind: 'rubric', ws: WORKSHEETS[CONFIG.RUBRIC_SHEET] },
+    ] },
+  ].filter(g => g.steps.length);
+}
+function steps() { return stepGroups().flatMap(g => g.steps); }
+function currentIndex() {
+  const i = steps().findIndex(s => s.key === state.ui.step);
+  return i < 0 ? 0 : i;
+}
+function currentStep() { return steps()[currentIndex()]; }
+
+function defaultValue(field) {
+  switch (field.type) {
+    case 'list': return Array(CONFIG.LIST_ROWS).fill('');
+    case 'tags': return [];
+    case 'table': return Array.from({ length: field.rows }, () => Array(field.columns.length).fill(''));
+    default: return '';
+  }
+}
+
+function getAnswer(wsId, field) {
+  const ws = state.answers[wsId];
+  const v = ws ? ws[field.id] : undefined;
+  if (v === undefined) return defaultValue(field);
+  if (field.type === 'list') {            // always exactly LIST_ROWS items
+    const arr = v.slice(0, CONFIG.LIST_ROWS);
+    while (arr.length < CONFIG.LIST_ROWS) arr.push('');
+    return arr;
+  }
+  if (field.type === 'table') {           // always rows × columns
+    return defaultValue(field).map((row, r) => row.map((_, c) => (v[r] && typeof v[r][c] === 'string') ? v[r][c] : ''));
+  }
+  return v;
+}
+
+function setAnswer(wsId, fieldId, value) {
+  if (!state.answers[wsId]) state.answers[wsId] = {};
+  state.answers[wsId][fieldId] = value;
+  onStateChanged();
+}
+
+function filled(s) { return typeof s === 'string' && s.trim() !== ''; }
+
+/* Completion rules: text/long/dropdown non-empty; list ≥ LIST_MIN_FILLED rows;
+   tags ≥ 1 choice; table ≥ 1 fully filled row. Rubric fields are not inputs. */
+function isValueComplete(field, v) {
+  switch (field.type) {
+    case 'list': return v.filter(filled).length >= CONFIG.LIST_MIN_FILLED;
+    case 'tags': return v.length > 0;
+    case 'table': return v.some(row => row.every(filled));
+    case 'rubric': return true;
+    default: return filled(v);
+  }
+}
+
+function isSheetComplete(ws) {
+  return ws.fields.every(f => isValueComplete(f, getAnswer(ws.id, f)));
+}
+
+function loadState() {
+  try {
+    const raw = window.localStorage.getItem(CONFIG.STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      const clean = validateImport(parsed);
+      clean.ui = { step: parsed.ui && typeof parsed.ui.step === 'string' ? parsed.ui.step : clean.ui.step };
+      state = clean;
+    }
+  } catch (e) { /* unreadable or blocked storage: start fresh */ }
+  try {   // probe that writes work
+    const k = CONFIG.STORAGE_KEY + ':probe';
+    window.localStorage.setItem(k, '1');
+    window.localStorage.removeItem(k);
+  } catch (e) { storageAvailable = false; }
+}
+
+function saveStateNow() {
+  if (!storageAvailable) return;
+  try {
+    window.localStorage.setItem(CONFIG.STORAGE_KEY, JSON.stringify(state));
+    setSaveStatus(t('saved'));
+  } catch (e) {
+    storageAvailable = false;
+    setSaveStatus();
+  }
+}
+
+function scheduleSave() {
+  if (!storageAvailable) return;
+  setSaveStatus(t('saving'));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveStateNow, 300);
+}
+
+/** Called after any answer/meta change: persist and refresh light-weight UI. */
+function onStateChanged() {
+  scheduleSave();
+  renderSidebar();
+  renderFooter();
+}
+
+/* ==============================================================================
+   RENDER
+   ============================================================================== */
+
+/* Pages opened through a shared link run inside a frame that blocks
+   window.print(), file downloads and confirm(); offer alternatives there. */
+const EMBEDDED = (() => { try { return window.self !== window.top; } catch (e) { return true; } })();
+
+/* ---- In-page dialogs (browser confirm() is blocked in some viewers) ---- */
+function openDialog(title, body, actions) {
+  const prev = document.activeElement;
+  const overlay = h('div', { class: 'dlg-overlay' });
+  const close = () => { overlay.remove(); if (prev && prev.focus) prev.focus(); };
+  const box = h('div', { class: 'dlg', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': 'dlg-title' },
+    h('h2', { id: 'dlg-title', text: title }), body,
+    h('div', { class: 'dlg-actions' }, actions.map(a => h('button', {
+      type: 'button', class: 'btn' + (a.primary ? ' primary' : ''), text: a.label,
+      onclick: e => { if (a.onclick && a.onclick(e) === false) return; close(); },
+    }))));
+  overlay.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.append(box);
+  document.body.append(overlay);
+  const first = box.querySelector('textarea:not([readonly]), .btn.primary');
+  if (first) first.focus();
+  return close;
+}
+
+function askConfirm(text, onYes) {
+  openDialog(t('confirmTitle'), h('p', { text: text }), [
+    { label: t('cancel') },
+    { label: t('confirmYes'), primary: true, onclick: () => { onYes(); } },
+  ]);
+}
+
+/** Copy a textarea's text; falls back to selecting it for Ctrl+C. */
+function copyText(el, btn) {
+  const ok = () => { if (btn) btn.textContent = t('copied'); };
+  const fallback = () => { el.focus(); el.select(); if (btn) btn.textContent = t('copySelected'); };
+  try { navigator.clipboard.writeText(el.value).then(ok, fallback); } catch (e) { fallback(); }
+}
+
+/** Tiny DOM builder: h('div', {class:'x', onclick: fn}, child, ...). */
+function h(tag, props) {
+  const el = document.createElement(tag);
+  const children = Array.prototype.slice.call(arguments, 2).flat(Infinity);
+  let value;
+  if (props) {
+    for (const k of Object.keys(props)) {
+      const v = props[k];
+      if (v == null || v === false) continue;
+      if (k === 'class') el.className = v;
+      else if (k === 'text') el.textContent = v;
+      else if (k === 'value') value = v;
+      else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+      else el.setAttribute(k, v === true ? '' : v);
+    }
+  }
+  for (const c of children) {
+    if (c == null || c === false) continue;
+    el.append(c instanceof Node ? c : String(c));
+  }
+  if (value !== undefined) el.value = value;  // after options exist (select)
+  return el;
+}
+
+function render() {
+  renderTopbar();
+  renderSidebar();
+  renderMain();
+  renderFooter();
+}
+
+function setSaveStatus(text) {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  if (!storageAvailable) {
+    el.textContent = t('storageOff');
+    el.className = 'save-status off';
+  } else {
+    el.textContent = text || '';
+    el.className = 'save-status';
+  }
+}
+
+function metaInput(id, key, labelKey, phKey, max) {
+  return h('div', { class: 'tb-field' },
+    h('label', { for: id, text: t(labelKey) }),
+    h('input', {
+      id: id, type: 'text', maxlength: max, value: state.meta[key],
+      placeholder: t(phKey), autocomplete: 'off',
+      oninput: e => { state.meta[key] = e.target.value; onStateChanged(); },
+    }));
+}
+
+function renderTopbar() {
+  const bar = document.getElementById('topbar');
+  bar.replaceChildren(
+    h('div', { class: 'brand' },
+      h('h1', { text: t('appTitle') }),
+      h('p', { text: t('appSubtitle') })),
+    h('div', { class: 'tb-field' },
+      h('label', { for: 'tb-genre', text: t('genre') }),
+      h('select', {
+        id: 'tb-genre', value: state.meta.genre,
+        onchange: e => {
+          state.meta.genre = e.target.value;
+          if (!state.lessonPlan.edited) state.lessonPlan.text = '';
+          onStateChanged(); render();
+        },
+      }, Object.keys(GENRES).map(id => h('option', { value: id }, GENRES[id].label)))),
+    metaInput('tb-title', 'title', 'workTitle', 'workTitlePh', 300),
+    metaInput('tb-author', 'author', 'author', 'authorPh', 200),
+    h('div', { class: 'tb-field' },
+      h('label', { for: 'tb-grade', text: t('grade') }),
+      h('select', {
+        id: 'tb-grade', value: state.meta.grade,
+        onchange: e => { state.meta.grade = e.target.value; onStateChanged(); },
+      }, h('option', { value: '' }, t('gradePh')),
+        CONFIG.GRADES.map(g => h('option', { value: String(g) }, g + t('gradeSuffix'))))),
+    h('div', { class: 'tb-actions' },
+      h('button', { class: 'btn', type: 'button', onclick: exportJson, text: t('exportBtn') }),
+      h('button', { class: 'btn', type: 'button', onclick: importDialog, text: t('importBtn') }),
+      h('button', { class: 'btn primary', type: 'button', onclick: () => printOutputs(defaultPrintTarget()), text: t('printBtn') }),
+      h('button', { class: 'btn danger', type: 'button', onclick: resetAll, text: t('resetBtn') }),
+      h('span', { id: 'save-status', class: 'save-status', 'aria-live': 'polite' })),
+  );
+  setSaveStatus();
+}
+
+function stepLabel(step) {
+  if (step.kind === 'plan') return t('lessonPlan');
+  if (step.kind === 'rubric') return t('rubric');
+  return step.ws.title;
+}
+
+function renderSidebar() {
+  const nav = document.getElementById('sidebar');
+  const active = currentStep().key;
+  const parts = [];
+  stepGroups().forEach(g => {
+    parts.push(h('h2', { text: g.title }));
+    parts.push(h('ul', { class: 'steps' }, g.steps.map(step => {
+      const done = step.kind === 'sheet' && !isPrintOnly(step.ws) && isSheetComplete(step.ws);
+      const marker = step.kind === 'plan' ? '≡' : step.kind === 'rubric' ? '31' : done ? '✓' : String(step.ws.order);
+      return h('li', null, h('button', {
+        type: 'button',
+        class: 'step-btn' + (done ? ' done' : ''),
+        'aria-current': step.key === active ? 'step' : null,
+        title: done ? step.ws.order + ' — ' + t('complete') : null,
+        onclick: () => goTo(step.key),
+      },
+      h('span', { class: 'step-num', 'aria-hidden': 'true' }, marker),
+      h('span', { class: 'step-label' }, stepLabel(step),
+        done ? h('span', { class: 'sr-only' }, ' — ' + t('complete')) : null)));
+    })));
+  });
+  parts.push(h('p', { class: 'privacy', text: t('privacy') }));
+  nav.replaceChildren.apply(nav, parts);
+}
+
+function renderFooter() {
+  const foot = document.getElementById('footer');
+  const ws = fillableSheets();
+  const done = ws.filter(isSheetComplete).length;
+  const pct = ws.length ? Math.round(done / ws.length * 100) : 0;
+  const all = steps(), i = currentIndex();
+  foot.replaceChildren(
+    h('button', { class: 'btn', type: 'button', disabled: i === 0, onclick: () => goTo(all[i - 1].key), text: t('prev') }),
+    h('div', { class: 'progress' },
+      h('div', { class: 'progress-track', role: 'progressbar', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': pct },
+        h('div', { class: 'progress-fill', style: 'width:' + pct + '%' })),
+      h('span', { class: 'progress-label', text: t('progress', { done: done, total: ws.length }) })),
+    h('button', { class: 'btn primary', type: 'button', disabled: i >= all.length - 1, onclick: () => goTo(all[i + 1].key), text: t('next') }),
+  );
+}
+
+function goTo(key) {
+  state.ui.step = key;
+  scheduleSave();
+  render();
+  document.getElementById('main').scrollTop = 0;
+}
+
+function showBanner(kind, text) { banner = { kind: kind, text: text }; renderBanner(); }
+
+function renderBanner() {
+  const slot = document.getElementById('banner-slot');
+  if (!slot) return;
+  slot.replaceChildren(banner ? h('div', { class: 'banner ' + banner.kind, role: banner.kind === 'error' ? 'alert' : 'status' },
+    h('p', { text: banner.text }),
+    h('button', { type: 'button', 'aria-label': t('close'), onclick: () => { banner = null; renderBanner(); } }, '×')) : '');
+}
+
+function renderMain() {
+  const box = document.getElementById('main-inner');
+  const step = currentStep();
+  const content = step.kind === 'plan' ? renderLessonPlan()
+    : step.kind === 'rubric' ? renderRubric()
+    : renderSheet(step.ws);
+  box.replaceChildren(h('div', { id: 'banner-slot' }), content);
+  renderBanner();
+}
+
+/* ---- Sheet rendering (generic, driven by WORKBOOK data) ---- */
+
+function sheetHeader(ws) {
+  const meta = [ws.guide ? t('guideRef', { guide: ws.guide }) : '', ws.standard ? t('standardRef', { standard: ws.standard }) : '']
+    .filter(Boolean).join(' · ');
+  return [
+    h('p', { class: 'ws-kicker', text: t('sheetKicker', { n: ws.order }) }),
+    h('h2', { class: 'ws-title', text: ws.title }),
+    meta ? h('p', { class: 'ws-meta', text: meta }) : null,
+    ws.note ? h('div', { class: 'banner warn' }, h('p', { text: ws.note })) : null,
+  ];
+}
+
+function renderSheet(ws) {
+  const tools = h('div', { class: 'ws-tools' },
+    h('button', { class: 'btn', type: 'button', text: t('printBlank'), onclick: () => printOutputs('blank:' + ws.id) }));
+  if (isPrintOnly(ws)) {
+    return h('section', null, sheetHeader(ws),
+      h('div', { class: 'banner warn' }, h('p', { text: t('printOnlyNote') })),
+      h('div', { class: 'card' },
+        h('span', { class: 'field-label', text: t('printOnlyFields') }),
+        h('ol', { class: 'label-list' }, ws.fields.map(f => h('li', { text: f.label })))),
+      tools);
+  }
+  return h('section', null, sheetHeader(ws), tools,
+    ws.id === CONFIG.PLOT_SHEET ? renderPlotBar(ws) : null,
+    ws.fields.map(f => renderField(ws.id, f)));
+}
+
+function fieldDomId(wsId, fid, extra) { return ['f', wsId, fid, extra].filter(x => x != null).join('-'); }
+
+function renderField(wsId, field) {
+  const value = getAnswer(wsId, field);
+  const id = fieldDomId(wsId, field.id);
+  const label = h('label', { class: 'field-label', for: id, text: field.label });
+  switch (field.type) {
+    case 'text':
+    case 'long':
+      return h('div', { class: 'card' }, label,
+        h(field.type === 'text' ? 'input' : 'textarea', {
+          id: id, type: field.type === 'text' ? 'text' : null, value: value,
+          maxlength: CONFIG.MAX_TEXT_LENGTH,
+          oninput: e => {
+            setAnswer(wsId, field.id, e.target.value);
+            if (wsId === CONFIG.PLOT_SHEET) updatePlotBar();
+          },
+        }));
+
+    case 'dropdown':
+      return h('div', { class: 'card' }, label,
+        h('select', { id: id, value: value, onchange: e => setAnswer(wsId, field.id, e.target.value) },
+          h('option', { value: '' }, t('selectPh')),
+          field.options.map(o => h('option', { value: o }, o))));
+
+    case 'list':
+      return h('div', { class: 'card' },
+        h('span', { class: 'field-label', id: id + '-label', text: field.label }),
+        h('div', { class: 'list-inputs', role: 'group', 'aria-labelledby': id + '-label' },
+          value.map((v, i) => h('div', { class: 'list-row' },
+            h('span', { text: (i + 1) + ')' }),
+            h('input', {
+              type: 'text', value: v, maxlength: 2000, 'aria-label': field.label + ' ' + (i + 1),
+              oninput: e => {
+                const arr = getAnswer(wsId, field).slice();
+                arr[i] = e.target.value;
+                setAnswer(wsId, field.id, arr);
+              },
+            })))));
+
+    case 'tags':
+      return h('div', { class: 'card' },
+        h('span', { class: 'field-label', id: id + '-label', text: field.label }),
+        h('div', { class: 'chips', role: 'group', 'aria-labelledby': id + '-label' },
+          field.options.map(o => h('button', {
+            type: 'button', class: 'chip', 'aria-pressed': value.includes(o) ? 'true' : 'false',
+            onclick: e => {
+              const cur = getAnswer(wsId, field);
+              const next = cur.includes(o) ? cur.filter(x => x !== o) : field.options.filter(x => x === o || cur.includes(x));
+              e.currentTarget.setAttribute('aria-pressed', next.includes(o) ? 'true' : 'false');
+              setAnswer(wsId, field.id, next);
+            },
+          }, o))));
+
+    case 'table':
+      return h('div', { class: 'card' },
+        h('span', { class: 'field-label', id: id + '-label', text: field.label }),
+        h('table', { class: 'ws-table', 'aria-labelledby': id + '-label' },
+          h('thead', null, h('tr', null, h('th'), field.columns.map(c => h('th', { scope: 'col', text: c })))),
+          h('tbody', null, value.map((row, r) => h('tr', null,
+            h('td', { class: 'rownum', text: (r + 1) + '.' }),
+            row.map((cell, c) => h('td', null, h('textarea', {
+              value: cell, rows: 2, maxlength: 2000,
+              'aria-label': field.columns[c] + ', ' + (r + 1),
+              oninput: e => {
+                const grid = getAnswer(wsId, field).map(x => x.slice());
+                grid[r][c] = e.target.value;
+                setAnswer(wsId, field.id, grid);
+              },
+            }))))))));
+
+    case 'rubric':
+      return h('div', { class: 'card' }, h('span', { class: 'field-label', text: field.label }), rubricTable(field));
+  }
+  return null;
+}
+
+/* Plot curve: one bar per plot-stage field, coloured once filled. */
+let plotCols = {};
+function renderPlotBar(ws) {
+  const stages = ws.fields.filter(f => CONFIG.PLOT_CURVE[f.id] != null);
+  plotCols = {};
+  const shortName = f => f.label.replace(/\s*\(.*$/, '');
+  const style = '--n:' + stages.length;
+  return h('div', { class: 'card' },
+    h('div', { class: 'stagebar', style: style, role: 'img', 'aria-label': t('plotBarLabel') },
+      stages.map(f => (plotCols[f.id] = h('button', {
+        type: 'button', tabindex: '-1', title: shortName(f),
+        class: 'stage-col' + (filled(getAnswer(ws.id, f)) ? ' filled' : ''),
+        onclick: () => document.getElementById(fieldDomId(ws.id, f.id)).focus(),
+      }, h('span', { class: 'stage-bar', style: 'height:' + CONFIG.PLOT_CURVE[f.id] + '%' }))))),
+    h('div', { class: 'stage-names', style: style, 'aria-hidden': 'true' }, stages.map(f => h('span', { text: shortName(f) }))));
+}
+function updatePlotBar() {
+  const ws = WORKSHEETS[CONFIG.PLOT_SHEET];
+  ws.fields.forEach(f => { if (plotCols[f.id]) plotCols[f.id].classList.toggle('filled', filled(getAnswer(ws.id, f))); });
+}
+
+/* ==============================================================================
+   LESSON_PLAN — deterministic, template-based generator.
+   Tokens:   {meta.title} {meta.author} {meta.genre} {meta.grade} {total}
+             {sheetId.fieldId}           answer (lists/tables/tags joined)
+             {label:sheetId.fieldId}     the field's question text
+             {a??b??c}                   first non-empty alternative
+   A line that is only one list/table token expands into indented rows.
+   A line starting with "?" is dropped when all its tokens are empty.
+   ============================================================================== */
+const LESSON_PLAN = {
+  header: [
+    'ҚЫСҚА МЕРЗІМДІ ЖОСПАР',
+    'Шығарма: «{meta.title}», {meta.author}',
+    'Жанры: {meta.genre} · Сынып: {meta.grade} · Ұзақтығы: {total} минут',
+    'Сабақ тақырыбы: {ws-25-lesson-plan.topic??meta.topicDefault}',
+    '?Тілдік мақсат: {ws-25-lesson-plan.language_goal}',
+    '?Құндылықтарды дарыту: {ws-25-lesson-plan.values}',
+    '?Пәнаралық байланыстар: {ws-25-lesson-plan.cross}',
+    '?Алдыңғы меңгерілген білім: {ws-25-lesson-plan.prior}',
+    '?Әдіс: {ws-24-teacher-adapt.method}',
+  ],
+  stages: [
+    { title: 'Ұйымдастыру кезеңі', minutes: 3, lines: [
+      '— Сәлемдесу, оқушылардың сабаққа дайындығын тексеру.',
+      '— Ынтымақтастық ахуалы: «Бір сөзбен» — әр оқушы шығармадан есте қалған бір сөзді атайды.',
+    ] },
+    { title: 'Үй тапсырмасын тексеру', minutes: 5, lines: [
+      '— «{meta.title}» шығармасын оқу бойынша алғашқы әсермен бөлісу (1-парақ).',
+      '— Алғашқы әсер (мұғалім үлгісі): {ws-01-first-reading.first_impression}',
+      '— Ең әсер еткен эпизод: {ws-01-first-reading.episode}',
+    ] },
+    { title: 'Сабақтың мақсаты мен міндеті', minutes: 2, lines: [
+      '— Оқу мақсаттары: {ws-25-lesson-plan.goals??meta.goalDefault}',
+      '?— Жетістік критерийлері: {ws-25-lesson-plan.criteria}',
+      '— Проблемалық сұрақ (тақтаға жазылады): {ws-01-first-reading.unclear??ws-01-first-reading.hypothesis}',
+    ] },
+    { title: 'Негізгі бөлім', activities: '@genre' },   // 30 min from the genre's set below
+    { title: 'Бекіту және рефлексия', minutes: 5, lines: [
+      '?— Түсіну сұрағы: {ws-24-teacher-adapt.q_understand}',
+      '?— Талдау сұрағы: {ws-24-teacher-adapt.q_analyze}',
+      '?— Бағалау/жасау сұрағы: {ws-24-teacher-adapt.q_evaluate}',
+      '— Тақырып пен идея (2-парақ): {ws-02-theme-idea.theme_word} — {ws-02-theme-idea.idea}',
+      '— Бағалау: {ws-25-lesson-plan.assessment??meta.assessDefault}',
+      '— Рефлексия «Бағдаршам»: жасыл — түсіндім, сары — сұрағым бар, қызыл — көмек керек.',
+    ] },
+  ],
+  footer: [
+    '?Саралау: {ws-25-lesson-plan.differentiation}',
+    'Үй тапсырмасы: 26-парақ «Өзін-өзі бағалау»; таңдаған кейіпкердің атынан шығарманың соңын 5–7 сөйлеммен баяндау.',
+  ],
+
+  /* Three 10-minute activities per genre (activity sets named in GENRES). */
+  activities: {
+    default: [
+      { title: '«Сюжет картасы» — жұптық жұмыс', minutes: 10, lines: [
+        'Жұптар оқиғаларды сюжет сатыларына орналастырып, әр сатыны мәтіннен бір деталь арқылы дәлелдейді (4-парақ).',
+        'Мұғалімге арналған кілт:',
+        '  Экспозиция: {ws-04-plot.exposition}',
+        '  Байланыс: {ws-04-plot.trigger}',
+        '  Оқиғаның дамуы: {ws-04-plot.development}',
+        '  Шиеленіс: {ws-04-plot.tension}',
+        '  Шарықтау шегі: {ws-04-plot.climax}',
+        '  Шешім: {ws-04-plot.resolution}',
+        'Сұрақ: {label:ws-04-plot.analytic}',
+        '?Күтілетін жауап: {ws-04-plot.analytic}',
+      ] },
+      { title: '«Конфликт картасы» — топтық талқылау', minutes: 10, lines: [
+        'Конфликт түрі: {ws-06-conflict.conflict_type}. Негізгі конфликт: {ws-06-conflict.main_conflict}',
+        'Сыртқы конфликт: {ws-06-conflict.external}',
+        '?Ішкі конфликт: {ws-06-conflict.internal}',
+        'Сұрақ: {label:ws-06-conflict.analytic}',
+        '?Күтілетін жауап: {ws-06-conflict.analytic}',
+      ] },
+      { title: '«Кейіпкер картасы» — топтық жұмыс', minutes: 10, lines: [
+        'Кейіпкер: {ws-07-character.character}. Мақсаты: {ws-07-character.goal}',
+        'Мінезі (3 қасиет, дәлелмен):',
+        '{ws-07-character.traits}',
+        '?Эволюциясы (8-парақ): {ws-08-evolution.start} → {ws-08-evolution.trigger} → {ws-08-evolution.end}',
+        '?Кейіпкерлер жүйесі (9-парақ):',
+        '{ws-09-relations.characters}',
+        'Сұрақ: {label:ws-07-character.analytic}',
+      ] },
+    ],
+    folklore: [
+      { title: '«Сюжет картасы және Пропп функциялары» — жұптық жұмыс', minutes: 10, lines: [
+        'Жұптар ертегі оқиғаларын сюжет сатыларына орналастырады (4-парақ) және Пропп функцияларын табады (29-парақ).',
+        'Мұғалімге арналған кілт:',
+        '  Экспозиция: {ws-04-plot.exposition}',
+        '  Байланыс: {ws-04-plot.trigger}',
+        '  Оқиғаның дамуы: {ws-04-plot.development}',
+        '  Шиеленіс: {ws-04-plot.tension}',
+        '  Шарықтау шегі: {ws-04-plot.climax}',
+        '  Шешім: {ws-04-plot.resolution}',
+        '  Пропп функциялары: {ws-29-folklore.propp}',
+        '?  Формулалық элементтер: {ws-29-folklore.formulas}',
+      ] },
+      { title: '«Конфликт картасы» — топтық талқылау', minutes: 10, lines: [
+        'Конфликт түрі: {ws-06-conflict.conflict_type}. Негізгі конфликт: {ws-06-conflict.main_conflict}',
+        'Сыртқы конфликт: {ws-06-conflict.external}',
+        '?Ішкі конфликт: {ws-06-conflict.internal}',
+        'Сұрақ: {label:ws-29-folklore.comparison}',
+        '?Күтілетін жауап: {ws-29-folklore.comparison}',
+      ] },
+      { title: '«Кейіпкерлер картасы» — топтық жұмыс', minutes: 10, lines: [
+        'Әр топ бір кейіпкерді алып, мінезін мәтіннен дәлелдейді (7, 9-парақтар).',
+        'Бас кейіпкер: {ws-07-character.character}. Мақсаты: {ws-07-character.goal}',
+        '{ws-07-character.traits}',
+        '?Кейіпкерлер жүйесі:',
+        '{ws-09-relations.characters}',
+        '?Эволюциясы: {ws-08-evolution.start} → {ws-08-evolution.trigger} → {ws-08-evolution.end}',
+      ] },
+    ],
+    poetry: [
+      { title: '«Лирикалық субъект және образдар» — жұптық жұмыс', minutes: 10, lines: [
+        'Лирикалық субъект пен көңіл-күй: {ws-18-poetry.lyric_subject}',
+        'Тақырып пен идея: {ws-18-poetry.theme_idea}',
+        'Негізгі образдар мен символдар: {ws-18-poetry.images}',
+        '?Композиция: {ws-18-poetry.composition}',
+      ] },
+      { title: '«Көркем тіл» — топтық жұмыс', minutes: 10, lines: [
+        'Троптар және қызметі: {ws-18-poetry.tropes}',
+        'Дыбыстық-ырғақтық ұйымдасу: {ws-18-poetry.sound}',
+        '?Тапқан троп (15-парақ): {ws-15-language.trope} — {ws-15-language.trope_analysis}',
+      ] },
+      { title: '«Close reading» — жеке жұмыс', minutes: 10, lines: [
+        'Үзінді: {ws-17-close-reading.passage}. Сөз/тіркес: {ws-17-close-reading.word}',
+        'Неге дәл осы сөз: {ws-17-close-reading.why}',
+        'Синонимі: {ws-17-close-reading.synonym} — мағына өзгерісі: {ws-17-close-reading.change}',
+        'Сұрақ: {label:ws-18-poetry.wholeness}',
+        '?Күтілетін жауап: {ws-18-poetry.wholeness}',
+      ] },
+    ],
+    drama: [
+      { title: '«Сюжет картасы» — жұптық жұмыс', minutes: 10, lines: [
+        'Мұғалімге арналған кілт (4-парақ):',
+        '  Экспозиция: {ws-04-plot.exposition}',
+        '  Байланыс: {ws-04-plot.trigger}',
+        '  Оқиғаның дамуы: {ws-04-plot.development}',
+        '  Шиеленіс: {ws-04-plot.tension}',
+        '  Шарықтау шегі: {ws-04-plot.climax}',
+        '  Шешім: {ws-04-plot.resolution}',
+      ] },
+      { title: '«Диалог пен ремарка» — рөлге бөліп оқу', minutes: 10, lines: [
+        'Түрі: {ws-20-drama.drama_type}. Драмалық конфликт: {ws-20-drama.conflict}',
+        'Ремаркалар және қызметі:',
+        '{ws-20-drama.remarks}',
+        'Диалог үзіндісі: {ws-20-drama.dialogue}',
+      ] },
+      { title: '«Кейіпкер және автор позициясы» — топтық талқылау', minutes: 10, lines: [
+        'Кейіпкер: {ws-07-character.character}. Мақсаты: {ws-07-character.goal}',
+        '{ws-07-character.traits}',
+        'Сұрақ: {label:ws-20-drama.analytic}',
+        '?Күтілетін жауап: {ws-20-drama.analytic}',
+      ] },
+    ],
+  },
+};
+
+function oneLine(s) { return String(s).replace(/\s*\n\s*/g, ' ').trim(); }
+function findField(wsId, fid) {
+  const ws = WORKSHEETS[wsId];
+  return ws ? ws.fields.find(f => f.id === fid) : null;
+}
+
+/** Value of one path, or null when empty. Arrays = multi-row values. */
+function resolvePath(path) {
+  if (path.indexOf('label:') === 0) {
+    const p = path.slice(6).split('.');
+    const f = findField(p[0], p[1]);
+    return f ? f.label : null;
+  }
+  const p = path.split('.');
+  if (p[0] === 'meta') {
+    const title = filled(state.meta.title) ? oneLine(state.meta.title) : t('untitled');
+    switch (p[1]) {
+      case 'title': return title;
+      case 'author': return filled(state.meta.author) ? oneLine(state.meta.author) : null;
+      case 'genre': return genre().label;
+      case 'grade': return state.meta.grade ? state.meta.grade + t('gradeSuffix') : null;
+      case 'topicDefault': return '«' + title + '» шығармасын талдау';
+      case 'goalDefault': return '«' + title + '» шығармасының мазмұнын, құрылымын және кейіпкерлерін мәтінге сүйеніп талдау.';
+      case 'assessDefault': return '31-парақтағы рубрика бойынша (12 балл).';
+    }
+    return null;
+  }
+  const field = findField(p[0], p[1]);
+  if (!field) return null;
+  const v = getAnswer(p[0], field);
+  switch (field.type) {
+    case 'list': { const xs = v.filter(filled).map(oneLine); return xs.length ? xs : null; }
+    case 'tags': return v.length ? v.join(', ') : null;
+    case 'table': {
+      const rows = v.filter(r => r.some(filled)).map(r => r.map(c => filled(c) ? oneLine(c) : '—').join(' — '));
+      return rows.length ? rows : null;
+    }
+    case 'rubric': return null;
+    default: return filled(v) ? oneLine(v) : null;
+  }
+}
+
+function resolveToken(expr, ctx) {
+  if (expr === 'total') return String(ctx.total);
+  for (const alt of expr.split('??')) {
+    const r = resolvePath(alt.trim());
+    if (r != null) return r;
+  }
+  return null;
+}
+
+/** Expand template lines with tokens, applying the given indent. */
+function expandLines(lines, indent, ctx) {
+  const out = [];
+  lines.forEach(raw => {
+    const optional = raw.charAt(0) === '?';
+    const line = optional ? raw.slice(1) : raw;
+    const solo = line.trim().match(/^\{([^{}]+)\}$/);
+    if (solo) {
+      const r = resolveToken(solo[1], ctx);
+      const lead = line.match(/^\s*/)[0];
+      if (Array.isArray(r)) { r.forEach((x, i) => out.push(indent + lead + '  ' + (i + 1) + ') ' + x)); return; }
+      if (r == null) { if (!optional) out.push(indent + lead + '  ' + t('empty')); return; }
+    }
+    let any = false, tokens = 0;
+    const text = line.replace(/\{([^{}]+)\}/g, (m, expr) => {
+      tokens++;
+      const r = resolveToken(expr, ctx);
+      if (r == null) return t('empty');
+      if (!/^label:/.test(expr) && expr !== 'total') any = true;
+      return Array.isArray(r) ? r.join('; ') : r;
+    });
+    if (optional && tokens && !any) return;
+    out.push(indent + text);
+  });
+  return out;
+}
+
+function activitySet() {
+  return LESSON_PLAN.activities[genre().activities] || LESSON_PLAN.activities.default;
+}
+function stageMinutes(stage) {
+  return stage.activities ? activitySet().reduce((a, x) => a + x.minutes, 0) : stage.minutes;
+}
+
+function generateLessonPlan() {
+  const total = LESSON_PLAN.stages.reduce((a, s) => a + stageMinutes(s), 0);
+  const ctx = { total: total };
+  const min = t('minutes');
+  let out = expandLines(LESSON_PLAN.header, '', ctx);
+  out.push('');
+  LESSON_PLAN.stages.forEach((s, i) => {
+    out.push((i + 1) + '. ' + s.title + ' — ' + stageMinutes(s) + ' ' + min);
+    if (s.lines) out = out.concat(expandLines(s.lines, '   ', ctx));
+    if (s.activities) activitySet().forEach((a, j) => {
+      out.push('   ' + (i + 1) + '.' + (j + 1) + '. ' + a.title + ' — ' + a.minutes + ' ' + min);
+      out = out.concat(expandLines(a.lines, '        ', ctx));
+    });
+    out.push('');
+  });
+  out = out.concat(expandLines(LESSON_PLAN.footer, '', ctx));
+  return { text: out.join('\n'), total: total };
+}
+
+/** Sheets referenced by the current template (for the info banner). */
+function planSourceSheets() {
+  const src = JSON.stringify([LESSON_PLAN.header, LESSON_PLAN.stages, LESSON_PLAN.footer, activitySet()]);
+  const ids = new Set((src.match(/ws-\d\d-[\w-]+/g) || []));
+  return Object.values(WORKSHEETS).filter(ws => ids.has(ws.id)).map(ws => ws.order);
+}
+
+function renderLessonPlan() {
+  // Keep the plan in sync with answers until the teacher edits it by hand.
+  const gen = generateLessonPlan();
+  if (!state.lessonPlan.edited || !filled(state.lessonPlan.text)) {
+    state.lessonPlan = { text: gen.text, edited: false };
+    scheduleSave();
+  }
+  return h('section', null,
+    h('h2', { class: 'ws-title', text: t('lessonPlan') }),
+    h('p', { class: 'ws-intro', text: t('planIntro') }),
+    gen.total !== CONFIG.LESSON_MINUTES ? h('div', { class: 'banner error', role: 'alert' },
+      h('p', { text: t('planTimeError', { sum: gen.total, need: CONFIG.LESSON_MINUTES }) })) : null,
+    h('div', { class: 'banner warn' }, h('p', { text: t('planSources', { list: planSourceSheets().join(', '), empty: t('empty') }) })),
+    state.lessonPlan.edited ? h('div', { class: 'banner warn' }, h('p', { text: t('planEditedNote') })) : null,
+    h('div', { class: 'ws-tools' },
+      h('button', { class: 'btn', type: 'button', text: t('planRegenerate'), onclick: () => {
+        const regen = () => { state.lessonPlan = { text: generateLessonPlan().text, edited: false }; scheduleSave(); renderMain(); };
+        if (state.lessonPlan.edited) askConfirm(t('planConfirmRegen'), regen); else regen();
+      } }),
+      h('button', { class: 'btn', type: 'button', text: t('copyPlan'), onclick: e => copyText(document.getElementById('plan-text'), e.currentTarget) }),
+      h('button', { class: 'btn primary', type: 'button', text: t('planPrint'), onclick: () => printOutputs('plan') })),
+    h('textarea', {
+      id: 'plan-text', class: 'plan-text', value: state.lessonPlan.text, spellcheck: 'true',
+      'aria-label': t('lessonPlan'),
+      oninput: e => { state.lessonPlan = { text: e.target.value, edited: true }; scheduleSave(); },
+    }));
+}
+
+/* ==============================================================================
+   RUBRIC — built from the "rubric" field of sheet 31.
+   ============================================================================== */
+function rubricField() {
+  return WORKSHEETS[CONFIG.RUBRIC_SHEET].fields.find(f => f.type === 'rubric');
+}
+
+function rubricLevels(field) {
+  return Object.keys(field.criteria[0].levels).map(Number).sort((a, b) => b - a);
+}
+
+function rubricTable(field) {
+  const levels = rubricLevels(field);
+  const max = field.criteria.length * levels[0];
+  return h('table', { class: 'rubric-table' },
+    h('thead', null, h('tr', null,
+      h('th', { scope: 'col', text: t('criterion') }),
+      levels.map(l => h('th', { scope: 'col' }, l + ' ' + t('pointsSuffix') + (STRINGS.levelNames[l] ? ' — ' + STRINGS.levelNames[l] : ''))),
+      h('th', { scope: 'col', class: 'score-col', text: t('score') }))),
+    h('tbody', null,
+      field.criteria.map(c => h('tr', null,
+        h('th', { scope: 'row', text: c.name }),
+        levels.map(l => h('td', { text: c.levels[String(l)] || '' })),
+        h('td', { class: 'score-col' }))),
+      h('tr', null,
+        h('th', { scope: 'row', colspan: levels.length + 1, style: 'text-align:right', text: t('total') }),
+        h('td', { class: 'score-col' }, '    / ' + max))));
+}
+
+function rubricBands(field) {
+  return h('ul', { class: 'rubric-bands' }, field.bands.map(b =>
+    h('li', { text: b.min + '–' + b.max + ' ' + t('pointsSuffix') + ' — ' + b.label })));
+}
+
+function renderRubric() {
+  const ws = WORKSHEETS[CONFIG.RUBRIC_SHEET];
+  const field = rubricField();
+  return h('section', null, sheetHeader(ws),
+    h('p', { class: 'ws-intro', text: t('rubricIntro') }),
+    h('div', { class: 'ws-tools' },
+      h('button', { class: 'btn primary', type: 'button', text: t('rubricPrint'), onclick: () => printOutputs('rubric') })),
+    rubricTable(field),
+    rubricBands(field));
+}
+
+/* ==============================================================================
+   PRINT — fills #print-area (the only thing visible under @media print).
+   Targets: 'plan', 'rubric', 'blank:<sheetId>'.
+   ============================================================================== */
+let printPrepared = false;
+
+function defaultPrintTarget() {
+  const s = currentStep();
+  return s.kind === 'plan' ? 'plan' : s.kind === 'rubric' ? 'rubric' : 'blank:' + s.ws.id;
+}
+
+/** Paper header from WORKBOOK.header: student name/date stay blank lines. */
+function printHead() {
+  const known = {
+    'Сынып': state.meta.grade ? state.meta.grade + t('gradeSuffix') : '',
+    'Шығарма': filled(state.meta.title) ? '«' + oneLine(state.meta.title) + '»' : '',
+    'Автор': filled(state.meta.author) ? oneLine(state.meta.author) : '',
+  };
+  return h('div', { class: 'print-head' }, WORKBOOK.header.map(label =>
+    h('div', null, label + ': ' + (known[label] || '______________________________'))));
+}
+
+function blankField(field) {
+  const label = h('div', { class: 'p-label', text: field.label });
+  const lines = n => Array.from({ length: n }, () => h('div', { class: 'p-line' }));
+  switch (field.type) {
+    case 'text': return h('div', { class: 'p-field' }, label, lines(1));
+    case 'long': return h('div', { class: 'p-field' }, label, lines(4));
+    case 'list': return h('div', { class: 'p-field' }, label,
+      Array.from({ length: CONFIG.LIST_ROWS }, (_, i) => h('div', { class: 'p-line' }, (i + 1) + ')')));
+    case 'dropdown':
+    case 'tags': return h('div', { class: 'p-field' }, label,
+      h('div', { class: 'p-opts' }, field.options.map(o => h('span', null, t('checkbox') + ' ' + o))),
+      field.type === 'tags' ? lines(2) : null);
+    case 'table': return h('div', { class: 'p-field' }, label, h('table', { class: 'p-table' },
+      h('thead', null, h('tr', null, field.columns.map(c => h('th', { text: c })))),
+      h('tbody', null, Array.from({ length: field.rows }, () => h('tr', null, field.columns.map(() => h('td')))))));
+    case 'rubric': return h('div', { class: 'p-field' }, label, rubricTable(field), rubricBands(field));
+  }
+  return null;
+}
+
+function blankSheetSection(ws) {
+  return h('section', { class: 'print-section' },
+    h('h2', { text: ws.order + '-ПАРАҚ. ' + ws.title.toUpperCase() }),
+    printHead(),
+    ws.guide ? h('p', { class: 'print-note', text: t('guideRef', { guide: ws.guide }) }) : null,
+    ws.note ? h('p', { class: 'print-note', text: ws.note }) : null,
+    ws.fields.map(blankField),
+    ws.standard ? h('p', { class: 'print-std', text: t('standardRef', { standard: ws.standard }) }) : null);
+}
+
+function buildPrintArea(target) {
+  const area = document.getElementById('print-area');
+  let section;
+  if (target === 'plan') {
+    const text = filled(state.lessonPlan.text) ? state.lessonPlan.text : generateLessonPlan().text;
+    section = h('section', { class: 'print-section' }, h('div', { class: 'print-plan', text: text }));
+  } else {
+    const id = target === 'rubric' ? CONFIG.RUBRIC_SHEET : target.slice(6);
+    section = blankSheetSection(WORKSHEETS[id]);
+  }
+  area.replaceChildren(section);
+}
+
+function printOutputs(target) {
+  if (EMBEDDED) { printHelp(target); return; }
+  if (target === 'plan' && (!state.lessonPlan.edited || !filled(state.lessonPlan.text))) {
+    state.lessonPlan = { text: generateLessonPlan().text, edited: false };
+  }
+  buildPrintArea(target);
+  printPrepared = true;
+  window.print();
+}
+
+function printHelp(target) {
+  if (target !== 'plan') {
+    openDialog(t('printTitle'), h('p', { text: t('printBlocked') }), [{ label: t('close'), primary: true }]);
+    return;
+  }
+  const text = state.lessonPlan.edited && filled(state.lessonPlan.text) ? state.lessonPlan.text : generateLessonPlan().text;
+  const ta = h('textarea', { class: 'dlg-code', readonly: true, value: text, 'aria-label': t('lessonPlan') });
+  openDialog(t('printTitle'), [h('p', { text: t('printBlockedPlan') }), ta], [
+    { label: t('close') },
+    { label: t('copyPlan'), primary: true, onclick: e => { copyText(ta, e.currentTarget); return false; } },
+  ]);
+}
+
+// Ctrl+P / browser menu printing: prepare based on the current step.
+window.addEventListener('beforeprint', () => { if (!printPrepared) buildPrintArea(defaultPrintTarget()); });
+window.addEventListener('afterprint', () => { printPrepared = false; });
+
+/* ==============================================================================
+   IMPORT / EXPORT
+   ============================================================================== */
+function exportData() {
+  return {
+    app: CONFIG.APP_ID,
+    version: CONFIG.DATA_VERSION,
+    exportedAt: new Date().toISOString(),
+    meta: state.meta,
+    answers: state.answers,
+    lessonPlan: state.lessonPlan,
+  };
+}
+
+function downloadJson(json) {
+  const blob = new Blob([json], { type: 'application/json' });
+  const slug = (state.meta.title || 'talday').trim()
+    .replace(/[\\/:*?"<>|«»]+/g, '').replace(/\s+/g, '-').slice(0, 60) || 'talday';
+  const a = h('a', { href: URL.createObjectURL(blob), download: CONFIG.APP_ID + '-' + slug + '-' + new Date().toISOString().slice(0, 10) + '.json' });
+  document.body.append(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+function exportJson() {
+  const json = JSON.stringify(exportData(), null, 2);
+  const ta = h('textarea', { class: 'dlg-code', readonly: true, value: json, 'aria-label': 'JSON' });
+  const actions = [
+    { label: t('close') },
+    { label: t('copyBtn'), primary: EMBEDDED, onclick: e => { copyText(ta, e.currentTarget); return false; } },
+  ];
+  if (!EMBEDDED) actions.push({ label: t('downloadBtn'), primary: true, onclick: () => { downloadJson(json); } });
+  openDialog(t('exportTitle'), [h('p', { text: t(EMBEDDED ? 'exportHelpEmbedded' : 'exportHelpFile') }), ta], actions);
+}
+
+class ImportError extends Error {}
+
+function fail(key, vars) { throw new ImportError(t(key, vars)); }
+function failAt(path, problemKey) { fail('errStructure', { path: path, problem: t(problemKey) }); }
+function isObj(x) { return x !== null && typeof x === 'object' && !Array.isArray(x); }
+
+function cleanString(v, path, max) {
+  if (v === undefined || v === null) return '';
+  if (typeof v !== 'string') failAt(path, 'probString');
+  if (v.length > (max || CONFIG.MAX_TEXT_LENGTH)) failAt(path, 'probTooLong');
+  return v;
+}
+
+function cleanStringArray(v, path, maxLen) {
+  if (v === undefined || v === null) return [];
+  if (!Array.isArray(v)) failAt(path, 'probArray');
+  if (v.length > maxLen) failAt(path, 'probTooMany');
+  return v.map((x, i) => cleanString(x, path + '[' + (i + 1) + ']'));
+}
+
+/** Validate a field value against the WORKBOOK schema; returns a clean copy. */
+function cleanField(field, v, path) {
+  switch (field.type) {
+    case 'text': case 'long': return cleanString(v, path);
+    case 'dropdown': {
+      const s = cleanString(v, path);
+      if (s && !field.options.includes(s)) failAt(path, 'probOption');
+      return s;
+    }
+    case 'list': return cleanStringArray(v, path, CONFIG.LIST_ROWS);
+    case 'tags': {
+      const arr = cleanStringArray(v, path, field.options.length);
+      arr.forEach((x, i) => { if (!field.options.includes(x)) failAt(path + '[' + (i + 1) + ']', 'probOption'); });
+      return arr;
+    }
+    case 'table': {
+      if (v === undefined || v === null) return defaultValue(field);
+      if (!Array.isArray(v)) failAt(path, 'probArray');
+      if (v.length > field.rows) failAt(path, 'probTooMany');
+      return v.map((row, r) => cleanStringArray(row, path + '[' + (r + 1) + ']', field.columns.length));
+    }
+  }
+  return undefined;   // rubric: nothing stored
+}
+
+/** Throws ImportError (Kazakh message) or returns a clean state object. */
+function validateImport(data) {
+  if (!isObj(data) || data.app !== CONFIG.APP_ID) fail('errWrongApp');
+  if (typeof data.version !== 'number') failAt('version', 'probNumber');
+  if (data.version > CONFIG.DATA_VERSION) fail('errNewer', { v: data.version });
+  if (data.version < CONFIG.DATA_VERSION) fail('errOlder', { v: data.version });
+
+  if (!isObj(data.meta)) failAt('meta', 'probObject');
+  const genreId = cleanString(data.meta.genre, 'meta.genre') || CONFIG.DEFAULT_GENRE;
+  if (!GENRES[genreId]) fail('errUnknownGenre', { genre: genreId });
+  const title = cleanString(data.meta.title, 'meta.title', 300);
+  const author = cleanString(data.meta.author, 'meta.author', 200);
+  const grade = data.meta.grade == null ? '' : String(data.meta.grade);
+  if (grade && !CONFIG.GRADES.map(String).includes(grade)) failAt('meta.grade', 'probOption');
+
+  const answersIn = data.answers == null ? {} : data.answers;
+  if (!isObj(answersIn)) failAt('answers', 'probObject');
+  const answers = {};
+  // Known, non-print-only sheets only; unknown keys are dropped.
+  Object.values(WORKSHEETS).filter(ws => !isPrintOnly(ws)).forEach(ws => {
+    const wsIn = answersIn[ws.id];
+    if (wsIn === undefined || wsIn === null) return;
+    if (!isObj(wsIn)) failAt('answers.' + ws.id, 'probObject');
+    const out = {};
+    ws.fields.forEach(f => {
+      if (wsIn[f.id] === undefined) return;
+      const v = cleanField(f, wsIn[f.id], 'answers.' + ws.id + '.' + f.id);
+      if (v !== undefined) out[f.id] = v;
+    });
+    answers[ws.id] = out;
+  });
+
+  let lessonPlan = { text: '', edited: false };
+  if (data.lessonPlan != null) {
+    if (!isObj(data.lessonPlan)) failAt('lessonPlan', 'probObject');
+    const lpText = cleanString(data.lessonPlan.text, 'lessonPlan.text');
+    const edited = data.lessonPlan.edited;
+    if (edited != null && typeof edited !== 'boolean') failAt('lessonPlan.edited', 'probBoolean');
+    lessonPlan = { text: lpText, edited: !!edited && filled(lpText) };
+  }
+
+  return {
+    app: CONFIG.APP_ID,
+    version: CONFIG.DATA_VERSION,
+    meta: { genre: genreId, title: title, author: author, grade: grade },
+    answers: answers,
+    lessonPlan: lessonPlan,
+    ui: { step: 'ws-01-first-reading' },
+  };
+}
+
+function importDialog() {
+  const ta = h('textarea', { class: 'dlg-code', placeholder: t('importPastePh'), 'aria-label': t('importTitle') });
+  openDialog(t('importTitle'), [h('p', { text: t('importHelp') }), ta], [
+    { label: t('cancel') },
+    { label: t('importFromFile'), onclick: () => { document.getElementById('import-file').click(); } },
+    { label: t('importApply'), primary: true, onclick: () => {
+      if (!filled(ta.value)) { ta.placeholder = t('importEmpty'); ta.focus(); return false; }
+      importText(ta.value);
+    } },
+  ]);
+}
+
+function handleImportFile(file) {
+  if (!file) return;
+  if (file.size > CONFIG.MAX_IMPORT_BYTES) { showBanner('error', t('errTooLarge')); return; }
+  const reader = new FileReader();
+  reader.onerror = () => showBanner('error', t('errRead'));
+  reader.onload = () => importText(String(reader.result));
+  reader.readAsText(file, 'utf-8');
+}
+
+/** Parse + validate; on success ask before replacing the current analysis. */
+function importText(text) {
+  if (text.length > CONFIG.MAX_IMPORT_BYTES) { showBanner('error', t('errTooLarge')); return; }
+  let data;
+  try { data = JSON.parse(text.replace(/^\uFEFF/, '')); }
+  catch (e) { showBanner('error', t('errNotJson')); return; }
+  let next;
+  try { next = validateImport(data); }
+  catch (e) {
+    showBanner('error', e instanceof ImportError ? e.message : t('errRead'));
+    return;
+  }
+  askConfirm(t('importConfirm'), () => {
+    state = next;
+    banner = null;
+    saveStateNow();
+    render();
+    showBanner('ok', t('importOk'));
+  });
+}
+
+function resetAll() {
+  askConfirm(t('resetConfirm'), () => {
+    state = freshState();
+    banner = null;
+    saveStateNow();
+    render();
+  });
+}
+
+/* ==============================================================================
+   INIT
+   ============================================================================== */
+document.getElementById('import-file').addEventListener('change', e => {
+  handleImportFile(e.target.files && e.target.files[0]);
+  e.target.value = '';   // allow re-importing the same file
+});
+window.addEventListener('beforeunload', () => { clearTimeout(saveTimer); saveStateNow(); });
+
+loadState();
+render();
+</script>
+</body>
+</html>
