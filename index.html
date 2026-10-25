@@ -67,7 +67,8 @@ README
       python3 preview.py plot.html preview.html            # guide preview: full text only in the PDF
       python3 tutor.py preview.html tutor.html             # «ЖИ тәлімгері» prompt (no AI call)
       python3 labmore.py tutor.html more.html              # 8 more lab tools, theory step, school/university level
-      python3 tidy.py more.html kobem-talday.html          # fewer words: «Кеңес» toggles, «Файл ▾» menu
+      python3 tidy.py more.html tidy.html                  # fewer words: «Кеңес» toggles, «Файл ▾» menu
+      python3 merge.py tidy.html kobem-talday.html         # «Нұсқаулық» inside «Дәптер»
 
   Code sections: CONFIG, STRINGS, WORKSHEETS, GUIDE, STATE, RENDER, LESSON_PLAN,
   RUBRIC, GUIDE VIEW, PRINT, IMPORT/EXPORT, INIT.
@@ -1102,6 +1103,21 @@ README
   @media (max-width: 520px) { .tutor-row .btn { width: 100%; justify-content: center; } }
   @media print { .lab-tip, .lab-step-tip, .tutor-row { display: none; } }
 </style>
+<style id="merge">
+  /* MERGE — «Парақтар | Нұсқаулық» switch and inline sheet tips */
+  .book-modes { display: flex; padding: 3px; gap: 2px; margin: 0 0 14px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--line); }
+  .book-modes button { flex: 1; border: 0; background: none; padding: 7px 10px; border-radius: 8px; font-weight: 600; color: var(--ink-2); }
+  .book-modes button[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow-sm); }
+  .ws-guide-tip { margin: 2px 0 14px; }
+  .ws-guide-tip > div { display: grid; gap: 12px; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); border: 1px solid var(--line); }
+  .ws-tip-item h4 { margin: 0 0 4px; font-size: 14px; color: var(--accent); }
+  .ws-tip-item p { margin: 0 0 6px; line-height: 1.55; }
+  .ws-tip-pdf { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 13.5px; color: var(--ink-2); }
+  .link-btn { border: 0; background: none; padding: 0; color: var(--accent); font-weight: 600; text-decoration: underline; cursor: pointer; }
+  @media (max-width: 520px) { .tabs .tab { padding: 7px 5px; font-size: 12.5px; } }   /* five tabs fit without scrolling */
+  @media (max-width: 400px) { .tabs .tab { padding: 7px 3px; font-size: 12px; } }
+  @media print { .book-modes, .ws-guide-tip { display: none; } }
+</style>
 </head>
 <body>
 <div class="app" id="app">
@@ -1299,8 +1315,7 @@ const STRINGS = {
     { title: '2. Парақтарды толтыру', items: [
       '«Дәптер» қойындысында сол жақтағы тізімнен парақты таңдаңыз. Телефонда «☰ Парақтар» батырмасын басыңыз.',
       'Толтырылған парақтың жанына ✓ белгісі қойылады, ал төменгі жолақ қанша парақ қалғанын көрсетеді.',
-      'Әр парақтағы «Нұсқаулық: 2.8 →» сияқты батырма сол тармақ бойынша қысқа әдістемелік кеңесті ашады. «Дәптерге оралу» сізді сол параққа қайтарады, жазғаныңыз өшпейді.',
-      '«Зертхана» қойындысында екі талдау құралы бар: «Кейіпкер психологиясы» және «Сюжет пен композиция». Талдау түрін жоғарыдан таңдап, кезең-кезеңімен толтырасыз, нәтижені көшіруге немесе PDF ретінде сақтауға болады.',
+      'Әр парақтағы «? Әдістемелік кеңес» батырмасы сол параққа арналған қысқа кеңесті ашады. Нұсқаулықтың кіріспесі мен 1-бөлімі сол жақтағы тізімнің үстіндегі «Нұсқаулық» ауыстырғышы арқылы ашылады.',
       'Зертханада 10 талдау құралы бар (кейіпкер психологиясы, сюжет пен композиция, нарратология, символдар мен мотивтер, уақыт пен кеңістік, мифопоэтика, салыстырмалы талдау, көркем тіл мен стиль, герменевтика, экокритика). «Мектеп / Университет» деңгейін таңдаңыз: университет деңгейінде теориялық сұрақтар қосылып, ЖИ тәлімгерінің талабы күшейеді. Әр құралдың соңында «Теориялық негіз / дереккөздер» кезеңі бар.',
       'Зертхананың әр кезеңінде «ЖИ тәлімгерінен кері байланыс алу» батырмасы бар. Ол жауаптарыңызды педагогикалық нұсқаулармен бірге дайын сұрауға жинайды; оны өзіңіз таңдаған ЖИ-ге қойып, кері байланыс аласыз. Сайт мәтінді ешқайда жібермейді.',
       '«Балалар әдебиеті» қойындысында жасқа қарай іріктелген 38 кітап бар. «Осы кітапты талдау» батырмасы сол кітапқа жаңа талдау ашады.',
@@ -1471,6 +1486,11 @@ const STRINGS = {
   tabGuide: 'Нұсқаулық',
   tabsLabel: 'Бөлімдер',
   guideBtn: 'Нұсқаулық: {id} →',
+  modeSheets: 'Парақтар',
+  modeGuide: 'Нұсқаулық',
+  modesLabel: 'Дәптер бөлімі',
+  sheetTip: 'Әдістемелік кеңес',
+  sheetTipRead: 'Нұсқаулықта оқу →',
   backToBook: '← Дәптерге оралу: {name}',
   guideSearch: 'Нұсқаулықтан іздеу',
   guideTip: 'Қысқа кеңес',
@@ -3527,9 +3547,9 @@ function renderTopbar() {
         e.currentTarget.setAttribute('aria-expanded', moreOpen ? 'true' : 'false');
       } }, '⚙'),
     h('div', { class: 'tabs', role: 'tablist', 'aria-label': t('tabsLabel') },
-      ['library', 'book', 'guide', 'glossary', 'kids', 'lab'].map(tab => h('button', {
+      ['library', 'book', 'glossary', 'kids', 'lab'].map(tab => h('button', {
         type: 'button', role: 'tab', class: 'tab', id: 'tab-' + tab,
-        'aria-selected': state.ui.tab === tab ? 'true' : 'false',
+        'aria-selected': state.ui.tab === tab || (tab === 'book' && state.ui.tab === 'guide') ? 'true' : 'false',
         onclick: () => switchTab(tab),
       }, tab === 'kids' ? [h('span', { class: 'tab-long', text: t('tabKids') }), h('span', { class: 'tab-short', text: t('tabKidsShort') })]
         : t({ library: 'tabLibrary', book: 'tabBook', guide: 'tabGuide', glossary: 'tabGlossary', lab: 'tabLab' }[tab])))),
@@ -3584,7 +3604,7 @@ function renderSidebar() {
   if (state.ui.tab === 'lab') { renderLabSidebar(); return; }
   const nav = document.getElementById('sidebar');
   const active = currentStep().key;
-  const parts = [];
+  const parts = [bookModeSwitch()];
   stepGroups().forEach(g => {
     parts.push(h('h2', { text: g.title }));
     parts.push(h('ul', { class: 'steps' }, g.steps.map(step => {
@@ -3675,16 +3695,21 @@ function renderMain() {
 /* ---- Sheet rendering (generic, driven by WORKBOOK data) ---- */
 
 function sheetHeader(ws) {
-  const meta = [ws.guide ? t('guideRef', { guide: ws.guide }) : '', ws.standard ? t('standardRef', { standard: ws.standard }) : '']
-    .filter(Boolean).join(' · ');
+  const meta = ws.standard ? t('standardRef', { standard: ws.standard }) : '';
   return [
     h('p', { class: 'ws-kicker', text: t('sheetKicker', { n: ws.order }) }),
     h('h2', { class: 'ws-title', text: ws.title }),
     meta ? h('p', { class: 'ws-meta', text: meta }) : null,
-    guideRefs(ws.guide).length ? h('div', { class: 'ws-tools' }, guideRefs(ws.guide).map(id => h('button', {
-      class: 'btn guide-link', type: 'button', title: guideHeading(GUIDE_INDEX[id]),
-      onclick: () => openGuide(id),
-    }, t('guideBtn', { id: id })))) : null,
+    guideRefs(ws.guide).length ? h('details', { class: 'lab-tip ws-guide-tip' }, h('summary', { text: t('sheetTip') }),
+      h('div', null, guideRefs(ws.guide).map(id => {
+        const sec = GUIDE_INDEX[id];
+        return h('div', { class: 'ws-tip-item' }, h('h4', { text: guideHeading(sec) }),
+          sec.locked
+            ? [filled(sec.text) ? renderGuideText(sec.text, '') : null,
+              h('p', { class: 'ws-tip-pdf' }, h('span', { text: t('guideLockedTitle') }),
+                h('button', { type: 'button', class: 'link-btn', text: t('guideLockedBuy'), onclick: showShop }))]
+            : h('button', { type: 'button', class: 'btn', text: t('sheetTipRead'), onclick: () => openGuide(id) }));
+      }))) : null,
     ws.note ? h('div', { class: 'banner warn' }, h('p', { text: ws.note })) : null,
   ];
 }
@@ -4271,9 +4296,18 @@ function renderGuideText(text, q) {
   return out;
 }
 
+function bookModeSwitch() {
+  return h('div', { class: 'book-modes', role: 'group', 'aria-label': t('modesLabel') },
+    [['book', 'modeSheets'], ['guide', 'modeGuide']].map(([id, key]) => h('button', {
+      type: 'button', 'aria-pressed': state.ui.tab === id ? 'true' : 'false', text: t(key),
+      onclick: () => { closeNav(); switchTab(id); },
+    })));
+}
+
 function renderGuideSidebar() {
   const nav = document.getElementById('sidebar');
   nav.replaceChildren(
+    bookModeSwitch(),
     h('h2', null, h('label', { for: 'guide-search', text: t('guideSearch') })),
     h('div', { class: 'g-search' }, h('input', {
       id: 'guide-search', type: 'search', value: state.ui.search || '', maxlength: 200,
