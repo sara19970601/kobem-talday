@@ -54,7 +54,7 @@ const CHK = async (p, sel) => { await goF(p, sel); return p.isChecked(sel); };
       await p.pdf({ path: shots + '/gl.pdf', format: 'A4' });
       await p.emulateMedia({ media: 'screen' });
       await p.click('.brand'); await p.waitForTimeout(300);
-      ok((await p.textContent('.cover-feats')).includes('63 термин'), 'cover lists glossary');
+      ok((await p.textContent('.wl-cards')).includes('63 термин'), 'cover lists glossary');
     }
     ok(!errs.length, vp.name + ' no errors ' + JSON.stringify(errs));
     ok(!net.length, vp.name + ' no network ' + JSON.stringify(net));

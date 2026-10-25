@@ -30,5 +30,6 @@ step labmore.py  "$w/14.html" "$w/15.html"      # 8 more tools, theory step, lev
 step tidy.py     "$w/15.html" "$w/16.html"      # «Кеңес» toggles, «Файл ▾»
 step merge.py    "$w/16.html" "$w/17.html"      # «Нұсқаулық» inside «Дәптер»
 step focus.py    "$w/17.html" "$here/fonts" "$w/18.html"   # «Фокус режимі»
-step seo.py      "$w/18.html" "$out"                       # search and sharing tags
+step welcome.py  "$w/18.html" "$w/19.html"                 # the first page
+step seo.py      "$w/19.html" "$out"                       # search and sharing tags
 echo "built: $out"

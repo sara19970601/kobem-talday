@@ -57,7 +57,7 @@ const CHK = async (p, sel) => { await goF(p, sel); return p.isChecked(sel); };
       await p.click('#tab-kids'); await p.waitForTimeout(700); await p.reload();
       ok(await p.getAttribute('#tab-kids', 'aria-selected') === 'true', 'reload stays on kids tab');
       await p.click('.brand'); await p.waitForTimeout(300);
-      ok((await p.textContent('.cover-feats')).includes('38 кітап'), 'cover lists the books');
+      ok((await p.textContent('.wl-cards')).includes('38 кітап'), 'cover lists the books');
     }
     ok(!errs.length, vp.name + ' no errors ' + JSON.stringify(errs));
     ok(!net.length, vp.name + ' no network ' + JSON.stringify(net));

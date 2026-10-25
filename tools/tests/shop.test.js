@@ -64,7 +64,7 @@ const MSG = {
   ok(await p.locator('.shop-card').count() === 2 && await p.locator('.cover').count() === 0, '#duken opens the shop directly');
   await p.keyboard.press('Escape');
   await p.goto(url.replace(/#.*/, '') + '?x=1');
-  await p.click('.cover-actions >> text=Электронды нұсқасын сатып алу');
+  await p.click('.cover >> text=Электронды нұсқасын сатып алу');
   ok(await p.locator('.shop-card').count() === 2, 'cover button opens the shop');
   await p.screenshot({ path: shots + '/shop-from-cover.png' });
   await b.close();
