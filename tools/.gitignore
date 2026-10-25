@@ -1,0 +1,8 @@
+# The full guide stays out of the public repository.
+guide.pdf
+guide.txt
+guide.json
+*.png
+*.pdf
+all.json
+node_modules/
