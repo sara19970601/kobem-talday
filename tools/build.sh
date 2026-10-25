@@ -29,5 +29,6 @@ step tutor.py    "$w/13.html" "$w/14.html"      # «ЖИ тәлімгері» pr
 step labmore.py  "$w/14.html" "$w/15.html"      # 8 more tools, theory step, level
 step tidy.py     "$w/15.html" "$w/16.html"      # «Кеңес» toggles, «Файл ▾»
 step merge.py    "$w/16.html" "$w/17.html"      # «Нұсқаулық» inside «Дәптер»
-step focus.py    "$w/17.html" "$here/fonts" "$out"   # «Фокус режимі»
+step focus.py    "$w/17.html" "$here/fonts" "$w/18.html"   # «Фокус режимі»
+step seo.py      "$w/18.html" "$out"                       # search and sharing tags
 echo "built: $out"
