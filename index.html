@@ -66,7 +66,8 @@ README
       python3 plot.py lab.html plot.html                   # «Зертхана»: сюжет пен композиция
       python3 preview.py plot.html preview.html            # guide preview: full text only in the PDF
       python3 tutor.py preview.html tutor.html             # «ЖИ тәлімгері» prompt (no AI call)
-      python3 labmore.py tutor.html kobem-talday.html      # 8 more lab tools, theory step, school/university level
+      python3 labmore.py tutor.html more.html              # 8 more lab tools, theory step, school/university level
+      python3 tidy.py more.html kobem-talday.html          # fewer words: «Кеңес» toggles, «Файл ▾» menu
 
   Code sections: CONFIG, STRINGS, WORKSHEETS, GUIDE, STATE, RENDER, LESSON_PLAN,
   RUBRIC, GUIDE VIEW, PRINT, IMPORT/EXPORT, INIT.
@@ -1067,6 +1068,40 @@ README
     .lab-tool-select { display: block; }
   }
 </style>
+<style id="tidy">
+  /* TIDY — «Кеңес» toggles, compact cards, «Файл ▾» menu */
+  .lab-tip { margin: -2px 0 8px; }
+  .lab-tip > summary { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; list-style: none;
+    font-size: 13px; font-weight: 600; color: var(--accent); padding: 2px 8px 2px 6px; border-radius: 999px; background: var(--accent-soft); }
+  .lab-tip > summary::-webkit-details-marker { display: none; }
+  .lab-tip > summary::before { content: "?"; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+    border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 800; }
+  .lab-tip[open] > summary { margin-bottom: 6px; }
+  .lab-tip .lab-hint { margin: 0; }
+  .lab-step-tip { margin: 0 0 14px; }
+  .lab-step-tip > div { padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); }
+  .lab-step-tip p { margin: 0 0 8px; line-height: 1.5; font-size: 14.5px; }
+  .lab-step-tip p:last-child, .lab-step-tip ul:last-child { margin-bottom: 0; }
+  .lab-step-tip ul { margin: 0 0 8px; padding-left: 20px; font-size: 14.5px; }
+  .lab-step-tip li { margin-bottom: 4px; line-height: 1.5; }
+  .lab-step-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0 0 8px; }
+  .lab-step-head .lab-pos { margin: 0; }
+  .lab-step-head .lab-step-title { margin: 0; }
+  .tutor-row { display: flex; justify-content: flex-end; margin: 4px 0 14px; }
+  .tutor-row .btn { display: inline-flex; align-items: center; gap: 8px; border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  .tutor-row .btn::before { content: "✦"; }
+  .lab-actions .tutor-row { margin: 0; }
+  .tb-menu { position: relative; }
+  .tb-menu > summary { list-style: none; cursor: pointer; }
+  .tb-menu > summary::-webkit-details-marker { display: none; }
+  .tb-menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 210px; display: grid; gap: 2px; padding: 6px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow-md, 0 8px 24px rgba(0, 0, 0, .15)); }
+  .tb-menu-item { text-align: left; border: 0; background: none; padding: 9px 12px; border-radius: 8px; font-size: 14.5px; color: var(--ink); }
+  .tb-menu-item:hover, .tb-menu-item:focus-visible { background: var(--surface-2); }
+  @media (max-width: 900px) { .tb-menu-list { left: 0; right: auto; } }
+  @media (max-width: 520px) { .tutor-row .btn { width: 100%; justify-content: center; } }
+  @media print { .lab-tip, .lab-step-tip, .tutor-row { display: none; } }
+</style>
 </head>
 <body>
 <div class="app" id="app">
@@ -1154,6 +1189,8 @@ const STRINGS = {
   gradePh: '—',
   gradeSuffix: '-сынып',
   exportBtn: 'Файлға сақтау',
+  fileMenu: 'Файл ▾',
+  tipLabel: 'Кеңес',
   importBtn: 'Файлдан ашу',
   printBtn: 'Басып шығару',
   resetBtn: 'Жаңа талдау',
@@ -1291,7 +1328,7 @@ const STRINGS = {
   tabKids: 'Балалар әдебиеті',
   tabLab: 'Зертхана',
   labTitle: 'Кейіпкер психологиясын талдау зертханасы',
-  labIntro: 'Кейіпкердің мінезін, мақсатын, эмоциясын, ішкі қайшылығын, қарым-қатынасын және өзгерісін мәтінге сүйеніп, кезең-кезеңімен талдаңыз. Соңында жауаптарыңыз бір құжатқа жиналады.',
+  labIntro: 'Кейіпкердің мінезін, мақсатын, эмоциясын, ішкі қайшылығын, қарым-қатынасын және өзгерісін мәтінге сүйеніп, кезең-кезеңімен талдаңыз.',
   labPos: '{n}-кезең / {total}',
   labSteps: 'Талдау кезеңдері',
   labConsent: 'Жауаптарымды осы браузерде сақтау',
@@ -1364,7 +1401,7 @@ const STRINGS = {
   labToolPlot: 'Сюжет пен композиция',
   labToolPlotHint: 'Сюжеттің негізі, тартыс, композиция, интерпретация',
   plotTitle: 'Сюжет пен композицияны талдау',
-  plotIntro: 'Шығарманың сюжетін, тартысын және композициялық құрылымын төрт кезеңде талдаңыз. Соңында жауаптарыңыз бір құжатқа жиналады.',
+  plotIntro: 'Шығарманың сюжетін, тартысын және композициялық құрылымын төрт кезеңде талдаңыз.',
   plotPrep: 'Дайындық',
   plotStagePos: '{n}-кезең / 4',
   plotSummaryPos: 'Жинақтау',
@@ -1395,7 +1432,7 @@ const STRINGS = {
   kAnalyze: 'Осы кітапты талдау →',
   kAnalyzeDone: '«{title}» үшін жаңа талдау ашылды. Жанр: Балалар әдебиеті.',
   glTitle: 'Әдеби терминдер сөздігі',
-  glIntro: 'Шығарманы талдауда жиі қолданылатын 63 терминнің қысқаша анықтамасы. Терминді табу үшін «Сөздіктен іздеу» жолағына сөзді жазыңыз (телефонда ол ☰ батырмасының ішінде).',
+  glIntro: 'Шығарманы талдауда жиі қолданылатын 63 терминнің қысқаша анықтамасы.',
   glSearch: 'Сөздіктен іздеу',
   glSearchPh: 'Термин немесе сөз…',
   glSections: 'Бөлімдер',
@@ -3520,10 +3557,12 @@ function renderTopbar() {
       }, h('option', { value: '' }, t('gradePh')),
         CONFIG.GRADES.map(g => h('option', { value: String(g) }, g + t('gradeSuffix'))))),
     h('div', { class: 'tb-actions' },
-      h('button', { class: 'btn', type: 'button', onclick: exportJson, text: t('exportBtn') }),
-      h('button', { class: 'btn', type: 'button', onclick: openImport, text: t('importBtn') }),
-      h('button', { class: 'btn primary', type: 'button', onclick: () => printOutputs(defaultPrintTarget()), text: t('printBtn') }),
-      h('button', { class: 'btn', type: 'button', onclick: newAnalysis, text: t('resetBtn') })),
+      h('details', { class: 'tb-menu' },
+        h('summary', { class: 'btn', text: t('fileMenu') }),
+        h('div', { class: 'tb-menu-list', role: 'menu' }, [[exportJson, 'exportBtn'], [openImport, 'importBtn'], [newAnalysis, 'resetBtn']].map(([run, key]) =>
+          h('button', { class: 'tb-menu-item', type: 'button', role: 'menuitem', text: t(key),
+            onclick: e => { e.currentTarget.closest('details').open = false; run(); } })))),
+      h('button', { class: 'btn primary', type: 'button', onclick: () => printOutputs(defaultPrintTarget()), text: t('printBtn') })),
     h('span', { id: 'save-status', class: 'save-status', 'aria-live': 'polite' }),
   );
   setSaveStatus();
@@ -4305,7 +4344,7 @@ function renderGuideMain() {
     title,
     sec.locked && filled(sec.text) ? h('section', { class: 'g-tip' }, h('h3', { text: t('guideTip') }), renderGuideText(sec.text, q)) : null,
     sec.locked ? h('div', { class: 'g-locked' },
-      h('div', null, h('h3', { text: t('guideLockedTitle') }), h('p', { text: t('guideLockedText') })),
+      h('div', { title: t('guideLockedText') }, h('h3', { text: t('guideLockedTitle') })),
       h('button', { class: 'btn primary', type: 'button', text: t('guideLockedBuy'), onclick: showShop }))
       : h('div', { class: 'g-body' }, renderGuideText(sec.text, q)),
     refs.length ? h('div', { class: 'card g-refs' },
@@ -5875,7 +5914,7 @@ function renderLabSidebar() {
       onclick: () => labGo(i),
     }, h('span', { class: 'step-num', 'aria-hidden': 'true' }, labStepDone(st) ? '✓' : labBadge(st, i)),
       h('span', { class: 'step-label' }, st.title))))),
-    h('p', { class: 'privacy', text: t('labConsentOn') }));
+  );
 }
 
 /** Refresh the ✓ marks without rebuilding the form (keeps focus while typing). */
@@ -5888,7 +5927,10 @@ function updateLabProgress() {
   document.querySelectorAll('.lab-dot').forEach((d, i) => d.classList.toggle('done', labStepDone(LAB_STEPS[i])));
 }
 
-function labHints(list) { return list && list.length ? h('ul', { class: 'lab-hint' }, list.map(x => h('li', { text: x }))) : null; }
+function labHints(list) {
+  return list && list.length ? h('details', { class: 'lab-tip' }, h('summary', { text: t('tipLabel') }),
+    h('ul', { class: 'lab-hint' }, list.map(x => h('li', { text: x })))) : null;
+}
 
 function labTextInput(f, id, value, onValue, tag) {
   const warn = h('p', { class: 'lab-warn', 'aria-live': 'polite' });
@@ -5958,7 +6000,7 @@ function renderLabTechniques(f) {
       box.checked = v[x.id].on;
       return h('div', { class: 'lab-tech' },
         h('label', { class: 'lab-tech-head', for: id + '-on' }, box, x.label),
-        h('p', { text: x.hint }),
+        labHints([x.hint]),
         h('label', { class: 'sr-only', for: id, text: x.label }),
         labTextInput(f, id, v[x.id].text, val => { v[x.id].text = val; if (filled(val) && !v[x.id].on) { v[x.id].on = true; box.checked = true; } labChanged(); }, 'textarea'));
     }));
@@ -5987,22 +6029,20 @@ function renderLabMain() {
   consent.checked = labConsent;
   const evWarns = [];
   return h('article', { class: 'lab' },
-    h('p', { class: 'ws-kicker', text: t('tabLab') }),
     h('div', { class: 'lab-tools', role: 'group', 'aria-label': t('labToolsLabel') }, Object.keys(LAB_TOOLS).map(id => h('button', {
       type: 'button', class: 'lab-tool', 'aria-pressed': id === labTool ? 'true' : 'false', onclick: () => labSwitch(id),
     }, h('b', { text: toolText(LAB_TOOLS[id], 'label') }), h('small', { text: toolText(LAB_TOOLS[id], 'hint') })))),
     h('select', { class: 'lab-tool-select', 'aria-label': t('labToolsLabel'), value: labTool, onchange: e => labSwitch(e.target.value) },
       Object.keys(LAB_TOOLS).map(id => h('option', { value: id }, toolText(LAB_TOOLS[id], 'label')))),
     h('h2', { class: 'ws-title', text: toolText(LAB_TOOLS[labTool], 'title') }),
-    h('p', { class: 'lab-tool-hint', text: toolText(LAB_TOOLS[labTool], 'hint') }),
     h('p', { class: 'k-intro', text: toolText(LAB_TOOLS[labTool], 'intro') }),
     h('div', { class: 'lab-bar' },
       h('div', { class: 'lab-level', role: 'group', 'aria-label': t('labLevel') }, h('span', { text: t('labLevel') }),
         h('span', { class: 'lab-level-opts' }, [['school', 'labLevelSchool'], ['uni', 'labLevelUni']].map(([id, key]) => h('button', {
           type: 'button', 'aria-pressed': labLevel === id ? 'true' : 'false', text: t(key), onclick: () => { if (labLevel !== id) setLabLevel(id); },
         })))),
-      h('label', { class: 'lab-consent', for: 'lab-consent' }, consent,
-        h('span', null, t('labConsent'), h('small', { id: 'lab-consent-note', text: t(labConsent ? 'labConsentOn' : 'labConsentOff') }))),
+      h('label', { class: 'lab-consent', for: 'lab-consent', title: t(labConsent ? 'labConsentOn' : 'labConsentOff') }, consent,
+        h('span', null, t('labConsent'))),
       h('button', { type: 'button', class: 'btn', text: t('labClear'), onclick: () => askConfirm(t('labClearAsk'), () => {
         lab = labStates[labTool] = labFresh(); labSaveNow(); render(); document.getElementById('main').scrollTop = 0; showBanner('ok', t('labCleared'));
       }) })),
@@ -6010,12 +6050,15 @@ function renderLabMain() {
       type: 'button', class: 'lab-dot' + (labStepDone(x) ? ' done' : ''), 'aria-current': i === lab.step ? 'step' : null,
       title: x.title, onclick: () => labGo(i),
     }, h('span', { class: 'n', text: labBadge(x, i) }), h('span', { text: x.title })))),
-    h('p', { class: 'lab-pos', text: labPosText(lab.step) }),
-    h('h3', { class: 'lab-step-title', text: st.title }),
-    st.intro ? h('p', { class: 'lab-step-intro', text: st.intro }) : null,
-    st.rules ? h('div', { class: 'card lab-rules' }, h('h3', { text: t('labRulesTitle') }),
-      h('ul', null, (LAB_TOOLS[labTool].rulesList || STRINGS[LAB_TOOLS[labTool].rules]).map(x => h('li', { text: x })))) : null,
-    st.note ? h('p', { class: 'lab-note', text: st.note }) : null,
+    h('div', { class: 'lab-step-head' },
+      h('p', { class: 'lab-pos', text: labPosText(lab.step) }),
+      h('h3', { class: 'lab-step-title', text: st.title })),
+    st.intro || st.rules || st.note ? h('details', { class: 'lab-tip lab-step-tip' }, h('summary', { text: t('tipLabel') }),
+      h('div', null,
+        st.intro ? h('p', { text: st.intro }) : null,
+        st.note ? h('p', { text: st.note }) : null,
+        st.rules ? [h('p', null, h('b', { text: t('labRulesTitle') })),
+          h('ul', null, (LAB_TOOLS[labTool].rulesList || STRINGS[LAB_TOOLS[labTool].rules]).map(x => h('li', { text: x })))] : null)) : null,
     st.summary ? renderLabSummary() : st.fields.filter(labFieldVisible).map(f => renderLabField(f, evWarns)),
     !st.summary && !st.rules ? tutorCard(false) : null);
 }
@@ -6270,9 +6313,8 @@ function showTutor(final) {
 }
 
 function tutorCard(final) {
-  return h('div', { class: 'tutor-card' },
-    h('div', null, h('h3', { text: t('tutorTitle') }), h('p', { text: t(final ? 'tutorCardFinal' : 'tutorCardText') })),
-    h('button', { type: 'button', class: 'btn primary', text: t('tutorBtn'), onclick: () => showTutor(final) }));
+  return h('div', { class: 'tutor-row' },
+    h('button', { type: 'button', class: 'btn', text: t('tutorBtn'), title: t(final ? 'tutorCardFinal' : 'tutorCardText'), onclick: () => showTutor(final) }));
 }
 
 function labDocNodes() {
@@ -6320,9 +6362,8 @@ function renderLabSummary() {
   return [
     h('div', { class: 'lab-actions' },
       h('button', { type: 'button', class: 'btn primary', text: t('labCopy'), onclick: e => labCopy(e.currentTarget) }),
-      h('button', { type: 'button', class: 'btn', text: t('labPrint'), onclick: () => printOutputs('lab') })),
-    h('p', { class: 'lab-step-intro', text: t('labPrintHint') }),
-    tutorCard(true),
+      h('button', { type: 'button', class: 'btn', text: t('labPrint'), title: t('labPrintHint'), onclick: () => printOutputs('lab') }),
+      tutorCard(true)),
     h('div', { class: 'card lab-doc' }, labDocNodes()),
   ];
 }
@@ -7149,7 +7190,8 @@ function showCover(force) {
    INIT
    ============================================================================== */
 document.body.append(h('div', { class: 'nav-scrim', onclick: closeNav }));
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNav(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeNav(); document.querySelectorAll('.tb-menu[open]').forEach(d => { d.open = false; }); } });
+document.addEventListener('click', e => { document.querySelectorAll('.tb-menu[open]').forEach(d => { if (!d.contains(e.target)) d.open = false; }); });
 
 document.getElementById('import-file').addEventListener('change', e => {
   handleImportFile(e.target.files && e.target.files[0]);
