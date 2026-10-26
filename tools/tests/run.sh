@@ -21,7 +21,7 @@ run() {
   local bad; bad=$(grep -v '^PASS' <<<"$outp" | grep -E '^FAIL|Error' | grep -v 'no network.*"http://localhost' || true)
   if [ -n "$bad" ]; then fails=$((fails + 1)); echo "✗ $name ($pass passed)"; echo "$bad" | sed 's/^/    /'; else echo "✓ $name ($pass passed)"; fi
 }
-for t in lab plot tutor more merge preview shop kids gloss; do run "$t" "$url" "$w"; done
+for t in lab plot tutor more merge preview shop kids gloss account; do run "$t" "$url" "$w"; done
 run saveword "$url" "$w"
 run lib "$url"
 run cover "$w/index.html"
