@@ -8,12 +8,12 @@ const IV = async (p, sel) => { await goF(p, sel); return p.inputValue(sel); };
 const SO = async (p, sel, v) => { await goF(p, sel); return p.selectOption(sel, v); };
 const CHK = async (p, sel) => { await goF(p, sel); return p.isChecked(sel); };
 const MSG = {
-  workbook: 'Сәлеметсіз бе! “Көркем шығарманы талдау” жұмыс дәптерінің word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
+  workbook: 'Сәлеметсіз бе! “Көркем шығарманы талдау” жұмыс дәптерінің Word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
   guide: 'Сәлеметсіз бе! “Көркем шығарманы талдау” әдістемелік нұсқаулығының PDF нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
   grade5: 'Сәлеметсіз бе! “Қазақ әдебиеті, 5-сынып” әмбебап жұмыс дәптерінің Word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
 };
 const PRICE = { workbook: '3000теңге', guide: '3000теңге', grade5: '3900теңге' };
-const BADGE = { workbook: 'PDF', guide: 'PDF', grade5: 'WORD' };
+const BADGE = { workbook: 'WORD', guide: 'PDF', grade5: 'WORD' };
 (async () => {
   const url = process.argv[2], shots = process.argv[3];
   const b = await chromium.launch();
