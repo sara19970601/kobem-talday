@@ -1,4 +1,4 @@
-"""Shop: two paid PDF products, ordered through WhatsApp (payment checked by hand via Kaspi).
+"""Shop: three paid products (PDF and Word), ordered through WhatsApp (payment checked by hand via Kaspi).
 No files, no payment code: the buttons only open a WhatsApp chat with a ready message.
 Usage: python3 -I shop.py in.html out.html   (run after save.py)"""
 import sys
@@ -28,11 +28,12 @@ const SHOP_PRODUCTS = [
   {
     id: 'workbook',
     title: '«Көркем шығарманы талдау» жұмыс дәптері',
+    badge: 'WORD',
     kind: 'Жұмыс дәптері',
-    format: 'PDF, электронды нұсқа',
+    format: 'Word (.docx), электронды нұсқа',
     description: 'Көркем шығарманы жүйелі талдауға, мәтінмен жұмыс істеуге және әдеби талдау дағдыларын дамытуға арналған практикалық жұмыс дәптері.',
     price: 3000,
-    message: 'Сәлеметсіз бе! “Көркем шығарманы талдау” жұмыс дәптерінің word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
+    message: 'Сәлеметсіз бе! “Көркем шығарманы талдау” жұмыс дәптерінің Word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
   },
   {
     id: 'guide',
@@ -43,6 +44,22 @@ const SHOP_PRODUCTS = [
     price: 3000,
     message: 'Сәлеметсіз бе! “Көркем шығарманы талдау” әдістемелік нұсқаулығының PDF нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
   },
+  {
+    id: 'grade5',
+    badge: 'WORD',
+    title: 'Қазақ әдебиеті, 5-сынып: оқу мақсаттарына негізделген әмбебап жұмыс дәптері',
+    kind: '5-сынып · Жұмыс дәптері',
+    format: 'Word (.docx), электронды нұсқа',
+    description: 'Бір оқу жылына арналған: 4 тоқсан, 14 шығарма, 68 сабақ. Оқу бағдарламасының 12 оқу мақсатына негізделген. «Арман-ПВ», «Мектеп», «Атамұра» оқулықтарының кез келгенімен қолданылады. Тапсырмалар үш деңгейде, жауап кілті мен бағалау критерийлері бар.',
+    contents: [
+      ['1-тоқсан. Таза, мінсіз асыл сөз', ['«Керқұла атты Кендебай» ертегісі', '«Қобыланды батыр» жыры', 'Асанқайғы аңызы']],
+      ['2-тоқсан. Тәрбиенің қайнар бұлағы', ['Дулат Бабатайұлы', 'Қыпшақ Сейітқұл', 'Атымтай жомарт', 'Дүние қалай етсең табылады?']],
+      ['3-тоқсан. Адамгершілік: асыл қасиет', ['Егіннің бастары', 'Адамдық диқаншысы', 'Менің атым Қожа', 'Бауыр']],
+      ['4-тоқсан. Отбасы құндылықтары', ['Анасын сағынған бала', 'Нағыз әже қайда?', 'Мексика ұлы']],
+    ],
+    price: 3900,
+    message: 'Сәлеметсіз бе! “Қазақ әдебиеті, 5-сынып” әмбебап жұмыс дәптерінің Word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
+  },
 ];
 
 /* ==============================================================================
@@ -51,13 +68,14 @@ const SHOP_PRODUCTS = [
 # ---- Strings ----
 rep("  helpBtn: 'Көмек',", """  shopBtn: 'Сатып алу',
   shopTitle: 'Электронды нұсқаларды сатып алу',
-  shopLead: 'Жұмыс дәптері мен әдістемелік нұсқаулықтың электронды нұсқасын WhatsApp арқылы тапсырыс беріп сатып алуға болады.',
+  shopLead: 'Жұмыс дәптерлері мен әдістемелік нұсқаулықтың электронды нұсқаларын WhatsApp арқылы тапсырыс беріп сатып алуға болады.',
   shopNum: '{n}-өнім',
   shopBuy: 'WhatsApp арқылы сатып алу',
   shopCurrency: 'теңге',
-  shopHow: 'Қажетті өнімді таңдап, WhatsApp арқылы тапсырыс беріңіз. Kaspi арқылы төлем жасау нұсқаулығын алғаннан кейін төлем жасайсыз. Төлем расталған соң PDF нұсқасы сізге жіберіледі.',
+  shopHow: 'Қажетті өнімді таңдап, WhatsApp арқылы тапсырыс беріңіз. Kaspi арқылы төлем жасау нұсқаулығын алғаннан кейін төлем жасайсыз. Төлем расталған соң файл (PDF немесе Word) сізге жіберіледі.',
   shopHowTitle: 'Тапсырыс беру тәртібі',
-  shopSteps: ['WhatsApp арқылы тапсырыс', 'Kaspi арқылы төлем', 'PDF нұсқасын алу'],
+  shopSteps: ['WhatsApp арқылы тапсырыс', 'Kaspi арқылы төлем', 'Файлды алу'],
+  shopContents: 'Мазмұны',
   coverShop: 'Электронды нұсқасын сатып алу',
   helpBtn: 'Көмек',""")
 
@@ -74,11 +92,11 @@ rep('</style>\n</head>', """</style>\n<style id="shop">
   @media (max-width: 520px) { .shop-btn { padding: 8px 11px; } }
   /* Very narrow phones: the logo stands in for the name, which would be cut to a few letters. */
   @media (max-width: 380px) { .brand h1 { display: none; } .brand .brand-mark { display: block; } }
-  .dlg.shop-dlg { max-width: 860px; width: calc(100% - 32px); }
+  .dlg.shop-dlg { max-width: 960px; width: calc(100% - 32px); }
   .shop-lead { margin: 0 0 14px; color: var(--ink-2); }
   .shop-photo { height: 130px; margin-bottom: 14px; }
   @media (max-width: 680px) { .shop-photo { height: 90px; } }
-  .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+  .shop-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
   .shop-card { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
     background: var(--surface); box-shadow: var(--shadow-sm); }
   .shop-cover { position: relative; height: 150px; display: flex; flex-direction: column; justify-content: flex-end;
@@ -88,11 +106,19 @@ rep('</style>\n</head>', """</style>\n<style id="shop">
   .shop-cover.workbook::before { background: linear-gradient(160deg, rgba(11, 102, 176, .55), rgba(6, 34, 62, .92)); }
   .shop-cover.guide { background-image: var(--photo-guide); }
   .shop-cover.guide::before { background: linear-gradient(160deg, rgba(150, 100, 20, .55), rgba(60, 30, 6, .92)); }
+  .shop-cover.grade5 { background-image: var(--photo-class); }
+  .shop-cover.grade5::before { background: linear-gradient(160deg, rgba(23, 103, 58, .55), rgba(6, 40, 22, .92)); }
   .shop-cover > * { position: relative; }
   .shop-cover-kind { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .9; }
   .shop-cover-name { font-family: var(--display); font-size: 21px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 6px rgba(0, 0, 0, .4); }
   .shop-cover-pdf { position: absolute; top: 12px; right: 12px; font-size: 11.5px; font-weight: 800; letter-spacing: .05em;
     background: rgba(255, 255, 255, .92); color: #b3261e; border-radius: 6px; padding: 3px 7px; }
+  .shop-cover-pdf.word { color: #185abd; }
+  .shop-toc { font-size: 14px; }
+  .shop-toc summary { cursor: pointer; font-weight: 600; color: var(--accent); min-height: 44px; display: flex; align-items: center; }
+  .shop-toc dl { margin: 6px 0 0; }
+  .shop-toc dt { font-weight: 700; margin-top: 8px; }
+  .shop-toc dd { margin: 2px 0 0 14px; color: var(--ink-2); line-height: 1.45; }
   .shop-body { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px 16px; flex: 1; }
   .shop-num { font-size: 12.5px; font-weight: 700; color: var(--accent); letter-spacing: .04em; text-transform: uppercase; }
   .shop-title { margin: 0; font-size: 17px; line-height: 1.3; }
@@ -155,7 +181,7 @@ function formatPrice(n) { return String(n).replace(/\\B(?=(\\d{3})+(?!\\d))/g, '
 function shopCard(p, i) {
   return h('article', { class: 'shop-card', id: 'shop-' + p.id },
     h('div', { class: 'shop-cover ' + p.id, 'aria-hidden': 'true' },
-      h('span', { class: 'shop-cover-pdf', text: 'PDF' }),
+      h('span', { class: 'shop-cover-pdf' + (p.badge === 'WORD' ? ' word' : ''), text: p.badge || 'PDF' }),
       h('span', { class: 'shop-cover-kind', text: t('appTitle') }),
       h('span', { class: 'shop-cover-name', text: p.kind })),
     h('div', { class: 'shop-body' },
@@ -163,6 +189,8 @@ function shopCard(p, i) {
       h('h3', { class: 'shop-title', text: p.title }),
       h('span', { class: 'shop-format', text: p.format }),
       h('p', { class: 'shop-desc', text: p.description }),
+      p.contents ? h('details', { class: 'shop-toc' }, h('summary', { text: t('shopContents') }),
+        h('dl', null, p.contents.flatMap(([q, works]) => [h('dt', { text: q }), h('dd', { text: works.join(' · ') })]))) : null,
       h('div', { class: 'shop-foot' },
         h('div', { class: 'shop-price' }, formatPrice(p.price), h('small', { text: t('shopCurrency') })),
         h('a', { class: 'wa-btn', href: waLink(p.message), target: '_blank', rel: 'noopener noreferrer',

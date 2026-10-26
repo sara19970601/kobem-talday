@@ -26,7 +26,7 @@ const CHK = async (p, sel) => { await goF(p, sel); return p.isChecked(sel); };
     ok((await p.textContent('.ws-guide-tip')).includes('Алғашқы әсер') && (await p.textContent('.ws-guide-tip')).includes('Толық нұсқасы PDF-те'), vp.name + ' tip opens inline with the PDF line');
     await p.screenshot({ path: shots + '/mg-sheet-' + vp.name + '.png' });
     await p.click('.ws-guide-tip .link-btn');
-    ok(await p.locator('.shop-card').count() === 2, vp.name + ' «Сатып алу» opens the shop'); await p.keyboard.press('Escape');
+    ok(await p.locator('.shop-card').count() === 3, vp.name + ' «Сатып алу» opens the shop'); await p.keyboard.press('Escape');
     ok(await p.getAttribute('#tab-book', 'aria-selected') === 'true', vp.name + ' still on the sheet');
     // switch to guide mode
     if (vp.width <= 900) await p.click('.nav-toggle');
