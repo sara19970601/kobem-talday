@@ -1,6 +1,6 @@
 """Search and sharing: page title and description, canonical link, Open Graph / Twitter card,
 icons, Schema.org data, and a <noscript> summary for readers (and crawlers) without JavaScript.
-Usage: python3 -I seo.py in.html out.html   (run after focus.py)"""
+Usage: python3 -I seo.py in.html out.html   (run last, after refresh.py)"""
 import json, sys
 
 src, out = sys.argv[1:3]
@@ -32,7 +32,7 @@ data = {
 head = '\n'.join([
     '<meta name="description" content="%s">' % DESC,
     '<meta name="author" content="Бекжанова Сара">',
-    '<meta name="theme-color" content="#234A8F">',
+    '<meta name="theme-color" content="#3A56E4">',
     '<link rel="canonical" href="%s">' % URL,
     '<link rel="icon" type="image/png" sizes="48x48" href="/favicon.png">',
     '<link rel="apple-touch-icon" href="/apple-touch-icon.png">',
