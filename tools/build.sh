@@ -32,5 +32,6 @@ step merge.py    "$w/16.html" "$w/17.html"      # «Нұсқаулық» inside 
 step focus.py    "$w/17.html" "$here/fonts" "$w/18.html"   # «Фокус режимі»
 step welcome.py  "$w/18.html" "$w/19.html"                 # the first page
 step account.py  "$w/19.html" "$here/data/auth.json" "$w/20.html"   # «Google арқылы кіру» (off while auth.json is empty)
-step seo.py      "$w/20.html" "$out"                       # search and sharing tags
+step refresh.py  "$w/20.html" "$w/21.html"                 # «Жарық» design
+step seo.py      "$w/21.html" "$out"                       # search and sharing tags
 echo "built: $out"
