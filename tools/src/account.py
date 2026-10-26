@@ -31,8 +31,8 @@ if key:
         payload = json.loads(base64.urlsafe_b64decode(key.split('.')[1] + '=='))
     except Exception:
         payload = {}
-    if payload.get('role') == 'service_role':
-        sys.exit('account: auth.json holds a service_role key. Use the anon (public) key only.')
+    if payload.get('role') == 'service_role' or key.startswith('sb_secret_'):
+        sys.exit('account: auth.json holds a secret (service_role) key. Use the anon / publishable key only.')
 cfg = {'supabaseUrl': url.rstrip('/'), 'supabaseAnonKey': key} if url and key else {}
 cfg_json = json.dumps(cfg, ensure_ascii=False).replace('</', '<\\/')
 
