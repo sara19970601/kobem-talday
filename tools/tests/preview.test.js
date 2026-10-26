@@ -23,7 +23,7 @@ const CHK = async (p, sel) => { await goF(p, sel); return p.isChecked(sel); };
     ok((await p.textContent('.g-locked')).includes('Толық нұсқасы PDF-те'), vp.name + ' «Толық нұсқасы PDF-те» shown');
     await p.screenshot({ path: shots + '/pv-tip-' + vp.name + '.png' });
     await p.click('.g-locked button');
-    ok(await p.locator('.shop-card').count() === 2, vp.name + ' «Сатып алу» opens the shop');
+    ok(await p.locator('.shop-card').count() === 3, vp.name + ' «Сатып алу» opens the shop');
     await p.keyboard.press('Escape');
     await p.click('#back-to-book');
     ok(await p.getAttribute('#tab-book', 'aria-selected') === 'true' && (await p.textContent('.ws-title')) === 'Шығарманы алғашқы оқу', vp.name + ' «Дәптерге оралу» returns to the sheet');

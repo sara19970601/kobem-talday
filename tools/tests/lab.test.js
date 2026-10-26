@@ -104,7 +104,7 @@ const CHK = async (p, sel) => { await goF(p, sel); return p.isChecked(sel); };
     ok(await IV(p, '#lab-hero') === '' && (await p.textContent('.banner.ok')).includes('тазартылды'), 'confirm clears answers');
     // Other parts still work
     await p.click('#tab-kids'); ok(await p.locator('.k-card').count() === 38, 'kids tab still works');
-    await p.click('.shop-btn'); ok(await p.locator('.shop-card').count() === 2, 'shop still works'); await p.keyboard.press('Escape');
+    await p.click('.shop-btn'); ok(await p.locator('.shop-card').count() === 3, 'shop still works'); await p.keyboard.press('Escape');
     ok(!errs.length, 'no errors ' + JSON.stringify(errs));
     ok(!net.length, 'no network ' + JSON.stringify(net));
     await ctx.close();

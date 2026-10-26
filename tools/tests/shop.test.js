@@ -8,9 +8,12 @@ const IV = async (p, sel) => { await goF(p, sel); return p.inputValue(sel); };
 const SO = async (p, sel, v) => { await goF(p, sel); return p.selectOption(sel, v); };
 const CHK = async (p, sel) => { await goF(p, sel); return p.isChecked(sel); };
 const MSG = {
-  workbook: 'Сәлеметсіз бе! “Көркем шығарманы талдау” жұмыс дәптерінің word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
+  workbook: 'Сәлеметсіз бе! “Көркем шығарманы талдау” жұмыс дәптерінің Word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
   guide: 'Сәлеметсіз бе! “Көркем шығарманы талдау” әдістемелік нұсқаулығының PDF нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
+  grade5: 'Сәлеметсіз бе! “Қазақ әдебиеті, 5-сынып” әмбебап жұмыс дәптерінің Word нұсқасын сатып алғым келеді. Бағасы мен Kaspi арқылы төлем жасау жолын жіберсеңіз.',
 };
+const PRICE = { workbook: '3000теңге', guide: '3000теңге', grade5: '3900теңге' };
+const BADGE = { workbook: 'WORD', guide: 'PDF', grade5: 'WORD' };
 (async () => {
   const url = process.argv[2], shots = process.argv[3];
   const b = await chromium.launch();
@@ -26,16 +29,21 @@ const MSG = {
     ok(bar.shopTop === bar.helpTop && bar.ov <= 0, vp.name + ' shop button beside help, no overflow ' + JSON.stringify(bar));
     await p.screenshot({ path: shots + '/shop-bar-' + vp.name + '.png', clip: { x: 0, y: 0, width: vp.width, height: 130 } });
     await p.click('.shop-btn');
-    ok(await p.locator('.shop-card').count() === 2, vp.name + ' two product cards');
-    for (const id of ['workbook', 'guide']) {
+    ok(await p.locator('.shop-card').count() === 3, vp.name + ' three product cards');
+    for (const id of ['workbook', 'guide', 'grade5']) {
       const a = p.locator('#shop-' + id + ' a.wa-btn');
       const href = await a.getAttribute('href');
       const u = new URL(href);
       ok(u.origin + u.pathname === 'https://wa.me/77782633831' && u.searchParams.get('text') === MSG[id] && await a.getAttribute('target') === '_blank',
         vp.name + ' ' + id + ' link opens WhatsApp with its message');
-      ok((await p.textContent('#shop-' + id + ' .shop-price')).replace(/\s/g, '') === '3000теңге' && (await a.textContent()) === 'WhatsApp арқылы сатып алу', vp.name + ' ' + id + ' price and label');
+      ok((await p.textContent('#shop-' + id + ' .shop-price')).replace(/\s/g, '') === PRICE[id] && (await a.textContent()) === 'WhatsApp арқылы сатып алу', vp.name + ' ' + id + ' price and label');
+      ok((await p.textContent('#shop-' + id + ' .shop-cover-pdf')) === BADGE[id], vp.name + ' ' + id + ' format badge');
     }
-    ok((await p.textContent('.shop-how')).includes('Төлем расталған соң PDF нұсқасы сізге жіберіледі.'), vp.name + ' order steps text');
+    ok((await p.textContent('.shop-how')).includes('Төлем расталған соң файл (PDF немесе Word) сізге жіберіледі.'), vp.name + ' order steps text');
+    await p.click('#shop-grade5 .shop-toc summary');
+    const toc = await p.textContent('#shop-grade5 .shop-toc');
+    ok(['1-тоқсан', '4-тоқсан', 'Менің атым Қожа', 'Мексика ұлы'].every(x => toc.includes(x)) && await p.locator('#shop-grade5 .shop-toc dd').count() === 4, vp.name + ' grade 5 contents open');
+    ok(await p.locator('a[href$=".docx"]').count() === 0, vp.name + ' no Word download links');
     ok(await p.locator('a[href$=".pdf"], a[download]').count() === 0, vp.name + ' no PDF download links');
     const dov = await p.evaluate(() => { const d = document.querySelector('.dlg'); return [d.scrollWidth - d.clientWidth, document.documentElement.scrollWidth - innerWidth]; });
     ok(dov[0] <= 0 && dov[1] <= 0, vp.name + ' dialog fits ' + dov);
@@ -61,11 +69,11 @@ const MSG = {
   const ctx = await b.newContext({ viewport: { width: 1280, height: 860 } });
   const p = await ctx.newPage();
   await p.goto(url + '#duken');
-  ok(await p.locator('.shop-card').count() === 2 && await p.locator('.cover').count() === 0, '#duken opens the shop directly');
+  ok(await p.locator('.shop-card').count() === 3 && await p.locator('.cover').count() === 0, '#duken opens the shop directly');
   await p.keyboard.press('Escape');
   await p.goto(url.replace(/#.*/, '') + '?x=1');
   await p.click('.cover >> text=Электронды нұсқасын сатып алу');
-  ok(await p.locator('.shop-card').count() === 2, 'cover button opens the shop');
+  ok(await p.locator('.shop-card').count() === 3, 'cover button opens the shop');
   await p.screenshot({ path: shots + '/shop-from-cover.png' });
   await b.close();
 })();
